@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Трекер задач</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root {
+    --bg: var(--tg-theme-bg-color, #ffffff);
+    --bg2: var(--tg-theme-secondary-bg-color, #f2f3f5);
+    --fg: var(--tg-theme-text-color, #16181d);
+    --muted: var(--tg-theme-hint-color, #7d828c);
+    --link: var(--tg-theme-link-color, #2a7ae2);
+    --accent: var(--tg-theme-button-color, #2a7ae2);
+    --accent-fg: var(--tg-theme-button-text-color, #ffffff);
+    --line: color-mix(in srgb, var(--fg) 10%, transparent);
+    --bad: #d6453d;
+    --warn: #c98a12;
+    --ok: #2f9e5b;
+    --radius: 12px;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg2); color: var(--fg); font: 15px/1.4 var(--font); -webkit-text-size-adjust: 100%; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 12px max(12px, env(safe-area-inset-right)) 32px max(12px, env(safe-area-inset-left)); display: grid; gap: 12px; }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  h1 { font-size: 20px; margin: 0; font-weight: 650; }
+  .sub { color: var(--muted); font-size: 13px; }
+  .btn { font: inherit; font-size: 13px; border: 0; border-radius: 999px; padding: 6px 12px; background: var(--bg); color: var(--link); cursor: pointer; }
+  .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .kpi { background: var(--bg); border-radius: var(--radius); padding: 10px 12px; }
+  .kpi b { display: block; font-size: 24px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .kpi span { color: var(--muted); font-size: 12px; }
+  .kpi.bad b { color: var(--bad); }
+  @media (max-width: 420px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .tabs { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--bg); border-radius: 10px; padding: 3px; gap: 3px; }
+  .tabs button { font: inherit; font-size: 14px; border: 0; background: transparent; color: var(--fg); padding: 7px 4px; border-radius: 8px; cursor: pointer; }
+  .tabs button[aria-selected="true"] { background: var(--accent); color: var(--accent-fg); }
+  .panel { display: grid; gap: 8px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font: inherit; font-size: 13px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); border-radius: 999px; padding: 5px 10px; cursor: pointer; }
+  .chip[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+  .search { width: 100%; font: inherit; font-size: 15px; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); }
+  .card { background: var(--bg); border-radius: var(--radius); padding: 10px 12px; display: grid; gap: 4px; }
+  .card .top { display: flex; gap: 8px; align-items: flex-start; }
+  .card .num { color: var(--muted); font-variant-numeric: tabular-nums; min-width: 2.2em; }
+  .card .title { flex: 1; min-width: 0; font-weight: 550; overflow-wrap: anywhere; }
+  .card .meta { display: flex; flex-wrap: wrap; gap: 4px 10px; color: var(--muted); font-size: 13px; padding-left: calc(2.2em + 8px); }
+  .card .note { font-size: 13px; padding-left: calc(2.2em + 8px); overflow-wrap: anywhere; }
+  .card .note.blk { color: var(--bad); }
+  .card .note.plain { color: var(--muted); }
+  .pill { font-size: 12px; border-radius: 999px; padding: 1px 8px; border: 1px solid currentColor; white-space: nowrap; }
+  .pill.blocked { color: var(--bad); }
+  .pill.in_progress { color: var(--ok); }
+  .pill.new { color: var(--muted); }
+  .warn { color: var(--warn); }
+  .bad { color: var(--bad); }
+  .people { background: var(--bg); border-radius: var(--radius); overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; font-variant-numeric: tabular-nums; }
+  th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; white-space: normal; }
+  th { font-weight: 500; font-size: 12px; color: var(--muted); }
+  tbody tr { cursor: pointer; }
+  tbody tr:last-child td { border-bottom: 0; }
+  .chart { background: var(--bg); border-radius: var(--radius); padding: 12px; }
+  .chart h2, .section h2 { font-size: 15px; margin: 0 0 8px; font-weight: 600; }
+  .bars { display: grid; grid-template-columns: repeat(14, 1fr); gap: 4px; align-items: end; height: 120px; }
+  .bar { background: var(--accent); border-radius: 4px 4px 0 0; min-height: 2px; position: relative; }
+  .bar.zero { background: var(--line); }
+  .bar i { position: absolute; top: -16px; left: 0; right: 0; text-align: center; font-style: normal; font-size: 11px; color: var(--muted); }
+  .days { display: grid; grid-template-columns: repeat(14, 1fr); gap: 4px; margin-top: 4px; font-size: 10px; color: var(--muted); text-align: center; }
+  .state { background: var(--bg); border-radius: var(--radius); padding: 24px 16px; text-align: center; color: var(--muted); }
+  .state b { display: block; color: var(--fg); font-size: 16px; margin-bottom: 4px; }
+  .skeleton { background: linear-gradient(90deg, var(--bg) 0%, var(--bg2) 50%, var(--bg) 100%); background-size: 200% 100%; animation: sh 1.2s infinite; border-radius: var(--radius); height: 64px; }
+  @keyframes sh { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+  @media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Трекер задач</h1>
+    <div><span class="sub" id="updated"></span> <button class="btn" id="reload" type="button">Обновить</button></div>
+  </header>
+
+  <div id="loading"><div class="skeleton"></div></div>
+  <div class="state" id="error" hidden></div>
+
+  <main id="app" hidden>
+    <section class="kpis" aria-label="Сводка">
+      <div class="kpi"><b id="k-open">—</b><span>открыто</span></div>
+      <div class="kpi bad"><b id="k-blocked">—</b><span>с блокером</span></div>
+      <div class="kpi bad"><b id="k-overdue">—</b><span>просрочено</span></div>
+      <div class="kpi"><b id="k-closed">—</b><span>закрыто за 7 дней</span></div>
+    </section>
+
+    <nav class="tabs" role="tablist" style="margin-top:12px">
+      <button role="tab" data-tab="tasks" aria-selected="true">Задачи</button>
+      <button role="tab" data-tab="people" aria-selected="false">Люди</button>
+      <button role="tab" data-tab="done" aria-selected="false">Закрыто</button>
+    </nav>
+
+    <section class="panel" id="tab-tasks" style="margin-top:12px">
+      <div class="controls" id="who"></div>
+      <div class="controls">
+        <button class="chip" id="only-blocked" type="button" aria-pressed="false">⛔ Только блокеры</button>
+        <button class="chip" id="sort" type="button" aria-pressed="false">Сначала давние</button>
+      </div>
+      <input class="search" id="q" type="search" placeholder="Поиск: задача, контрагент, номер" aria-label="Поиск">
+      <div id="list" class="panel"></div>
+    </section>
+
+    <section class="panel" id="tab-people" style="margin-top:12px" hidden>
+      <div class="people">
+        <table>
+          <thead><tr><th>Ответственный</th><th>Открыто</th><th>В работе</th><th>⛔</th><th>Новые</th><th>Давность, дн.</th><th>Закрыто 7 дн.</th><th>30 дн.</th></tr></thead>
+          <tbody id="people"></tbody>
+        </table>
+      </div>
+      <div class="sub">Нажмите на человека, чтобы увидеть его задачи.</div>
+    </section>
+
+    <section class="panel" id="tab-done" style="margin-top:12px" hidden>
+      <div class="chart">
+        <h2>Закрыто по дням, последние 14 дней</h2>
+        <div class="bars" id="bars"></div>
+        <div class="days" id="days"></div>
+      </div>
+      <div class="section">
+        <h2 style="margin:8px 0">Недавно закрытые</h2>
+        <div id="recent" class="panel"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+(() => {
+  // Public endpoint: returns data only for a valid Telegram signature from an allowed team member.
+  const API = 'https://hook.eu1.make.com/8se36dwaiebkl6kg5upym2yghus959oj';
+  const TZ = 'Europe/Moscow';
+  const DAY = 86400000;
+  const STATUS = { new: 'Новая', in_progress: 'В работе', blocked: 'Блокер' };
+  const tg = window.Telegram && window.Telegram.WebApp;
+  const $ = (id) => document.getElementById(id);
+  const state = { tasks: [], people: {}, me: '', who: null, onlyBlocked: false, oldestFirst: true, q: '', tab: 'tasks' };
+
+  const b64 = (s) => {
+    if (!s) return '';
+    try { return new TextDecoder().decode(Uint8Array.from(atob(s), (c) => c.charCodeAt(0))); } catch (e) { return ''; }
+  };
+  const day = (t) => new Date(t).toLocaleDateString('sv-SE', { timeZone: TZ });
+  const ddmm = (s) => { if (!s) return ''; const [, m, d] = s.split('-'); return `${d}.${m}`; };
+  const nameOf = (h) => (h && state.people[String(h).toLowerCase()]) || h || 'без ответственного';
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+
+  function showError(title, text) {
+    $('loading').hidden = true; $('app').hidden = true;
+    const box = $('error'); box.replaceChildren(el('b', null, title), document.createTextNode(text)); box.hidden = false;
+  }
+
+  async function load() {
+    $('error').hidden = true;
+    if (!state.tasks.length) $('loading').hidden = false;
+    if (!tg || !tg.initData) { showError('Откройте трекер через бота', 'Эта страница работает только внутри Telegram: кнопка «Трекер» в чате с ботом.'); return; }
+    try {
+      const res = await fetch(API, { method: 'POST', body: new URLSearchParams({ initData: tg.initData }), cache: 'no-store', credentials: 'omit' });
+      if (res.status === 403) { showError('Нет доступа', 'Напишите боту /start в личке. Если не помогло, обратитесь к руководителю отдела.'); return; }
+      const data = await res.json();
+      if (!data.ok) throw new Error('bad');
+      state.people = data.people || {};
+      state.me = (data.me || '').toLowerCase();
+      state.tasks = (data.tasks || []).map((t) => {
+        const o = { num: Number(t.num), created_at: t.created_at, updated_at: t.updated_at, done_at: t.done_at, due: t.due };
+        ['title', 'type', 'counterparty', 'assignee', 'status', 'blocker', 'author', 'last_note'].forEach((k) => { o[k] = b64(t[k]); });
+        return o;
+      }).filter((t) => t.num && t.title && !/^DEBUG/i.test(t.title));
+      $('updated').textContent = 'обновлено ' + new Date(data.generated || Date.now()).toLocaleTimeString('ru-RU', { timeZone: TZ, hour: '2-digit', minute: '2-digit' });
+      $('loading').hidden = true; $('app').hidden = false;
+      render();
+    } catch (e) {
+      showError('Не удалось загрузить задачи', 'Проверьте интернет и нажмите «Обновить».');
+    }
+  }
+
+  const isOpen = (t) => t.status !== 'done' && t.status !== 'cancelled';
+
+  function render() {
+    const now = Date.now(), today = day(now);
+    const open = state.tasks.filter(isOpen);
+    open.forEach((t) => {
+      t.age = Math.max(0, Math.floor((now - Date.parse(t.created_at)) / DAY));
+      t.idle = Math.max(0, Math.floor((now - Date.parse(t.updated_at || t.created_at)) / DAY));
+      t.dueDay = t.due ? day(t.due) : '';
+    });
+    const done = state.tasks.filter((t) => t.status === 'done' && t.done_at);
+    $('k-open').textContent = open.length;
+    $('k-blocked').textContent = open.filter((t) => t.status === 'blocked').length;
+    $('k-overdue').textContent = open.filter((t) => t.dueDay && t.dueDay < today).length;
+    $('k-closed').textContent = done.filter((t) => now - Date.parse(t.done_at) <= 7 * DAY).length;
+    renderTasks(open, today);
+    renderPeople(open, done, now);
+    renderDone(done, now);
+  }
+
+  function renderTasks(open, today) {
+    const people = [...new Set(open.map((t) => (t.assignee || '').toLowerCase()))].sort((a, b) => nameOf(a).localeCompare(nameOf(b), 'ru'));
+    const who = $('who');
+    const chip = (label, val) => {
+      const b = el('button', 'chip', label); b.type = 'button';
+      b.setAttribute('aria-pressed', String(state.who === val));
+      b.addEventListener('click', () => { state.who = val; render(); });
+      return b;
+    };
+    const mine = open.filter((t) => (t.assignee || '').toLowerCase() === state.me).length;
+    who.replaceChildren(chip(`Все · ${open.length}`, null), ...(state.me && mine ? [chip(`Мои · ${mine}`, state.me)] : []),
+      ...people.filter((p) => p !== state.me).map((p) => chip(`${nameOf(p)} · ${open.filter((t) => (t.assignee || '').toLowerCase() === p).length}`, p)));
+    $('only-blocked').setAttribute('aria-pressed', String(state.onlyBlocked));
+    $('sort').textContent = state.oldestFirst ? 'Сначала давние' : 'Сначала новые';
+
+    const q = state.q.trim().toLowerCase();
+    let rows = open.filter((t) => (!state.who || (t.assignee || '').toLowerCase() === state.who) && (!state.onlyBlocked || t.status === 'blocked')
+      && (!q || [t.num, t.title, t.counterparty, t.blocker, t.last_note, nameOf(t.assignee)].join(' ').toLowerCase().includes(q)));
+    rows.sort((a, b) => state.oldestFirst ? (b.age - a.age || a.num - b.num) : (a.age - b.age || b.num - a.num));
+
+    const list = $('list');
+    if (!rows.length) { list.replaceChildren(el('div', 'state', open.length ? 'Под эти условия задач нет.' : 'Открытых задач нет 🎉')); return; }
+    list.replaceChildren(...rows.map((t) => {
+      const c = el('article', 'card');
+      const top = el('div', 'top');
+      top.append(el('span', 'num', '#' + t.num), el('span', 'title', t.title), el('span', 'pill ' + t.status, STATUS[t.status] || t.status));
+      const meta = el('div', 'meta');
+      meta.append(el('span', null, nameOf(t.assignee)));
+      if (t.counterparty) meta.append(el('span', null, t.counterparty));
+      meta.append(el('span', t.age >= 7 ? 'bad' : t.age >= 3 ? 'warn' : null, `открыта ${t.age} дн.`));
+      if (t.idle >= 3) meta.append(el('span', 'warn', `без движения ${t.idle} дн.`));
+      if (t.dueDay) meta.append(el('span', t.dueDay < today ? 'bad' : null, `⏰ ${ddmm(t.dueDay)}${t.dueDay < today ? ' просрочено' : ''}`));
+      c.append(top, meta);
+      if (t.status === 'blocked' && t.blocker) c.append(el('div', 'note blk', '⛔ ' + t.blocker));
+      if (t.last_note) c.append(el('div', 'note plain', t.last_note));
+      return c;
+    }));
+  }
+
+  function renderPeople(open, done, now) {
+    const m = new Map();
+    const get = (h) => { const k = (h || '—').toLowerCase(); if (!m.has(k)) m.set(k, { k, open: 0, in_progress: 0, blocked: 0, new: 0, oldest: 0, c7: 0, c30: 0 }); return m.get(k); };
+    open.forEach((t) => { const p = get(t.assignee); p.open++; if (p[t.status] != null) p[t.status]++; p.oldest = Math.max(p.oldest, t.age); });
+    done.forEach((t) => { const p = get(t.assignee); const ago = now - Date.parse(t.done_at); if (ago <= 7 * DAY) p.c7++; if (ago <= 30 * DAY) p.c30++; });
+    const rows = [...m.values()].sort((a, b) => b.open - a.open || b.c30 - a.c30);
+    $('people').replaceChildren(...rows.map((p) => {
+      const tr = el('tr');
+      tr.append(el('td', null, nameOf(p.k)));
+      [p.open, p.in_progress, p.blocked, p.new, p.open ? p.oldest : '', p.c7, p.c30].forEach((v, i) => {
+        const td = el('td', null, String(v));
+        if (i === 2 && v > 0) td.className = 'bad';
+        if (i === 4 && v !== '') td.className = v >= 7 ? 'bad' : v >= 3 ? 'warn' : '';
+        tr.append(td);
+      });
+      tr.addEventListener('click', () => { state.who = p.k; setTab('tasks'); render(); });
+      return tr;
+    }));
+  }
+
+  function renderDone(done, now) {
+    const days = Array.from({ length: 14 }, (_, i) => day(now - (13 - i) * DAY));
+    const counts = days.map((d) => done.filter((t) => day(t.done_at) === d).length);
+    const max = Math.max(3, ...counts);
+    $('bars').replaceChildren(...counts.map((n, i) => {
+      const b = el('div', 'bar' + (n ? '' : ' zero')); b.style.height = (n ? Math.max(4, (n / max) * 100) : 2) + '%';
+      b.title = `${ddmm(days[i])}: ${n}`;
+      if (n) b.append(el('i', null, String(n)));
+      return b;
+    }));
+    $('days').replaceChildren(...days.map((d, i) => el('span', null, i % 2 === 13 % 2 ? ddmm(d) : '')));
+    const recent = done.slice().sort((a, b) => Date.parse(b.done_at) - Date.parse(a.done_at)).slice(0, 20);
+    $('recent').replaceChildren(...(recent.length ? recent.map((t) => {
+      const c = el('article', 'card');
+      const top = el('div', 'top'); top.append(el('span', 'num', '#' + t.num), el('span', 'title', t.title));
+      const meta = el('div', 'meta'); meta.append(el('span', null, nameOf(t.assignee)), el('span', null, '✅ ' + ddmm(day(t.done_at))));
+      c.append(top, meta); return c;
+    }) : [el('div', 'state', 'За последние 60 дней закрытых задач нет.')]));
+  }
+
+  function setTab(name) {
+    state.tab = name;
+    document.querySelectorAll('.tabs button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
+    ['tasks', 'people', 'done'].forEach((t) => { $('tab-' + t).hidden = t !== name; });
+  }
+
+  document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.tab)));
+  $('only-blocked').addEventListener('click', () => { state.onlyBlocked = !state.onlyBlocked; render(); });
+  $('sort').addEventListener('click', () => { state.oldestFirst = !state.oldestFirst; render(); });
+  $('q').addEventListener('input', (e) => { state.q = e.target.value; render(); });
+  $('reload').addEventListener('click', load);
+
+  if (tg) { tg.ready(); tg.expand(); }
+  load();
+})();
+</script>
+</body>
+</html>
