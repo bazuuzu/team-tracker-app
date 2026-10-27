@@ -16,7 +16,7 @@
     --link: var(--tg-theme-link-color, #2a7ae2);
     --accent: var(--tg-theme-button-color, #2a7ae2);
     --accent-fg: var(--tg-theme-button-text-color, #ffffff);
-    --line: color-mix(in srgb, var(--fg) 10%, transparent);
+    --line: color-mix(in srgb, var(--fg) 12%, transparent);
     --bad: #d6453d;
     --warn: #c98a12;
     --ok: #2f9e5b;
@@ -25,11 +25,12 @@
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; background: var(--bg2); color: var(--fg); font: 15px/1.4 var(--font); -webkit-text-size-adjust: 100%; }
-  .wrap { max-width: 760px; margin: 0 auto; padding: 12px max(12px, env(safe-area-inset-right)) 32px max(12px, env(safe-area-inset-left)); display: grid; gap: 12px; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 12px max(12px, env(safe-area-inset-right)) 96px max(12px, env(safe-area-inset-left)); display: grid; gap: 12px; }
   header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
   h1 { font-size: 20px; margin: 0; font-weight: 650; }
   .sub { color: var(--muted); font-size: 13px; }
-  .btn { font: inherit; font-size: 13px; border: 0; border-radius: 999px; padding: 6px 12px; background: var(--bg); color: var(--link); cursor: pointer; }
+  button { font: inherit; }
+  .btn { font-size: 13px; border: 0; border-radius: 999px; padding: 6px 12px; background: var(--bg); color: var(--link); cursor: pointer; }
   .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
   .kpi { background: var(--bg); border-radius: var(--radius); padding: 10px 12px; }
   .kpi b { display: block; font-size: 24px; font-weight: 650; font-variant-numeric: tabular-nums; }
@@ -37,27 +38,40 @@
   .kpi.bad b { color: var(--bad); }
   @media (max-width: 420px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   .tabs { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--bg); border-radius: 10px; padding: 3px; gap: 3px; }
-  .tabs button { font: inherit; font-size: 14px; border: 0; background: transparent; color: var(--fg); padding: 7px 4px; border-radius: 8px; cursor: pointer; }
+  .tabs button { font-size: 14px; border: 0; background: transparent; color: var(--fg); padding: 7px 4px; border-radius: 8px; cursor: pointer; }
   .tabs button[aria-selected="true"] { background: var(--accent); color: var(--accent-fg); }
   .panel { display: grid; gap: 8px; }
   .controls { display: flex; flex-wrap: wrap; gap: 6px; }
-  .chip { font: inherit; font-size: 13px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); border-radius: 999px; padding: 5px 10px; cursor: pointer; }
+  .chip { font-size: 13px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); border-radius: 999px; padding: 5px 10px; cursor: pointer; }
   .chip[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
-  .search { width: 100%; font: inherit; font-size: 15px; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); }
+  input, select, textarea { font: inherit; font-size: 15px; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); width: 100%; }
+  textarea { resize: vertical; min-height: 64px; }
   .card { background: var(--bg); border-radius: var(--radius); padding: 10px 12px; display: grid; gap: 4px; }
-  .card .top { display: flex; gap: 8px; align-items: flex-start; }
+  .card .top { display: flex; gap: 8px; align-items: flex-start; cursor: pointer; }
   .card .num { color: var(--muted); font-variant-numeric: tabular-nums; min-width: 2.2em; }
   .card .title { flex: 1; min-width: 0; font-weight: 550; overflow-wrap: anywhere; }
   .card .meta { display: flex; flex-wrap: wrap; gap: 4px 10px; color: var(--muted); font-size: 13px; padding-left: calc(2.2em + 8px); }
   .card .note { font-size: 13px; padding-left: calc(2.2em + 8px); overflow-wrap: anywhere; }
   .card .note.blk { color: var(--bad); }
   .card .note.plain { color: var(--muted); }
+  .detail { margin-top: 6px; padding: 8px 0 0 calc(2.2em + 8px); border-top: 1px solid var(--line); display: grid; gap: 8px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 6px; }
+  .act { font-size: 13px; border: 0; border-radius: 8px; padding: 7px 10px; background: var(--bg2); color: var(--fg); cursor: pointer; }
+  .act.primary { background: var(--accent); color: var(--accent-fg); }
+  .act.danger { color: var(--bad); }
+  .act:disabled { opacity: .5; }
+  .editor { display: grid; gap: 6px; }
+  .editor .row { display: flex; gap: 6px; }
+  .history { font-size: 12px; color: var(--muted); display: grid; gap: 2px; }
+  .history b { font-weight: 600; color: var(--fg); font-size: 13px; }
   .pill { font-size: 12px; border-radius: 999px; padding: 1px 8px; border: 1px solid currentColor; white-space: nowrap; }
   .pill.blocked { color: var(--bad); }
   .pill.in_progress { color: var(--ok); }
   .pill.new { color: var(--muted); }
+  .pill.done { color: var(--ok); }
   .warn { color: var(--warn); }
   .bad { color: var(--bad); }
+  a { color: var(--link); }
   .people { background: var(--bg); border-radius: var(--radius); overflow-x: auto; }
   table { border-collapse: collapse; width: 100%; font-size: 14px; font-variant-numeric: tabular-nums; }
   th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
@@ -67,7 +81,7 @@
   tbody tr:last-child td { border-bottom: 0; }
   .chart { background: var(--bg); border-radius: var(--radius); padding: 12px; }
   .chart h2, .section h2 { font-size: 15px; margin: 0 0 8px; font-weight: 600; }
-  .bars { display: grid; grid-template-columns: repeat(14, 1fr); gap: 4px; align-items: end; height: 120px; }
+  .bars { display: grid; grid-template-columns: repeat(14, 1fr); gap: 4px; align-items: end; height: 120px; padding-top: 16px; }
   .bar { background: var(--accent); border-radius: 4px 4px 0 0; min-height: 2px; position: relative; }
   .bar.zero { background: var(--line); }
   .bar i { position: absolute; top: -16px; left: 0; right: 0; text-align: center; font-style: normal; font-size: 11px; color: var(--muted); }
@@ -76,6 +90,12 @@
   .state b { display: block; color: var(--fg); font-size: 16px; margin-bottom: 4px; }
   .skeleton { background: linear-gradient(90deg, var(--bg) 0%, var(--bg2) 50%, var(--bg) 100%); background-size: 200% 100%; animation: sh 1.2s infinite; border-radius: var(--radius); height: 64px; }
   @keyframes sh { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+  .fab { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: calc(16px + env(safe-area-inset-bottom)); border: 0; border-radius: 999px; padding: 12px 18px; background: var(--accent); color: var(--accent-fg); font-weight: 600; box-shadow: 0 4px 16px rgba(0,0,0,.2); cursor: pointer; }
+  .sheet { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: flex-end; justify-content: center; z-index: 10; }
+  .sheet .box { background: var(--bg); width: 100%; max-width: 760px; border-radius: 16px 16px 0 0; padding: 16px max(16px, env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); display: grid; gap: 10px; }
+  .sheet h2 { margin: 0; font-size: 17px; }
+  .sheet label { font-size: 13px; color: var(--muted); display: grid; gap: 4px; }
+  .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(80px + env(safe-area-inset-bottom)); background: var(--fg); color: var(--bg); padding: 8px 14px; border-radius: 999px; font-size: 14px; z-index: 20; }
   @media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
   [hidden] { display: none !important; }
 </style>
@@ -110,7 +130,7 @@
         <button class="chip" id="only-blocked" type="button" aria-pressed="false">⛔ Только блокеры</button>
         <button class="chip" id="sort" type="button" aria-pressed="false">Сначала давние</button>
       </div>
-      <input class="search" id="q" type="search" placeholder="Поиск: задача, контрагент, номер" aria-label="Поиск">
+      <input id="q" type="search" placeholder="Поиск: задача, контрагент, номер" aria-label="Поиск">
       <div id="list" class="panel"></div>
     </section>
 
@@ -134,33 +154,64 @@
         <h2 style="margin:8px 0">Недавно закрытые</h2>
         <div id="recent" class="panel"></div>
       </div>
+      <div class="section">
+        <h2 style="margin:8px 0">Архив</h2>
+        <div class="sub" style="margin-bottom:6px">Закрытые больше 30 дней назад хранятся в архиве. Ищите по названию, контрагенту, заметке или номеру.</div>
+        <div class="editor"><div class="row">
+          <input id="aq" type="search" placeholder="Например: Ростелеком или 4512" aria-label="Поиск в архиве">
+          <button class="act primary" id="asearch" type="button">Найти</button>
+        </div></div>
+        <div id="archive" class="panel" style="margin-top:8px"></div>
+      </div>
     </section>
   </main>
 </div>
 
+<button class="fab" id="new" type="button" hidden>＋ Задача</button>
+
+<div class="sheet" id="sheet" hidden>
+  <div class="box" role="dialog" aria-labelledby="sheet-title">
+    <h2 id="sheet-title">Новая задача</h2>
+    <label>Что сделать<textarea id="n-title" placeholder="Например: Оплатить счёт Ростелекома №4512"></textarea></label>
+    <label>Ответственный<select id="n-who"></select></label>
+    <label>Срок (необязательно)<input id="n-due" type="date"></label>
+    <div class="actions">
+      <button class="act primary" id="n-save" type="button">Создать</button>
+      <button class="act" id="n-cancel" type="button">Отмена</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (() => {
-  // Public endpoint: returns data only for a valid Telegram signature from an allowed team member.
+  // Public endpoint: answers only to a valid Telegram signature from an allowed team member.
   const API = 'https://hook.eu1.make.com/8se36dwaiebkl6kg5upym2yghus959oj';
   const TZ = 'Europe/Moscow';
   const DAY = 86400000;
-  const STATUS = { new: 'Новая', in_progress: 'В работе', blocked: 'Блокер' };
+  const STATUS = { new: 'Новая', in_progress: 'В работе', blocked: 'Блокер', done: 'Закрыта', cancelled: 'Отменена' };
   const tg = window.Telegram && window.Telegram.WebApp;
   const $ = (id) => document.getElementById(id);
-  const state = { tasks: [], people: {}, me: '', who: null, onlyBlocked: false, oldestFirst: true, q: '', tab: 'tasks' };
+  const state = { tasks: [], people: {}, team: [], managers: [], me: '', who: null, onlyBlocked: false, oldestFirst: true, q: '', tab: 'tasks', open: null, editor: null, busy: false };
 
-  const b64 = (s) => {
-    if (!s) return '';
-    try { return new TextDecoder().decode(Uint8Array.from(atob(s), (c) => c.charCodeAt(0))); } catch (e) { return ''; }
-  };
+  const b64 = (s) => { if (!s) return ''; try { return new TextDecoder().decode(Uint8Array.from(atob(s), (c) => c.charCodeAt(0))); } catch (e) { return ''; } };
   const day = (t) => new Date(t).toLocaleDateString('sv-SE', { timeZone: TZ });
   const ddmm = (s) => { if (!s) return ''; const [, m, d] = s.split('-'); return `${d}.${m}`; };
-  const nameOf = (h) => (h && state.people[String(h).toLowerCase()]) || h || 'без ответственного';
+  const lc = (s) => String(s || '').toLowerCase();
+  const nameOf = (h) => (h && state.people[lc(h)]) || h || 'без ответственного';
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const haptic = (t) => { try { tg.HapticFeedback.notificationOccurred(t); } catch (e) {} };
+  const alertBox = (msg) => { try { tg.showAlert(msg); } catch (e) { toast(msg); } };
+  function toast(msg) { const t = el('div', 'toast', msg); document.body.append(t); setTimeout(() => t.remove(), 2200); }
 
   function showError(title, text) {
-    $('loading').hidden = true; $('app').hidden = true;
+    $('loading').hidden = true; $('app').hidden = true; $('new').hidden = true;
     const box = $('error'); box.replaceChildren(el('b', null, title), document.createTextNode(text)); box.hidden = false;
+  }
+
+  async function post(params) {
+    const res = await fetch(API, { method: 'POST', body: new URLSearchParams({ initData: tg.initData, ...params }), cache: 'no-store', credentials: 'omit' });
+    let data = null; try { data = await res.json(); } catch (e) {}
+    return { status: res.status, data };
   }
 
   async function load() {
@@ -168,35 +219,54 @@
     if (!state.tasks.length) $('loading').hidden = false;
     if (!tg || !tg.initData) { showError('Откройте трекер через бота', 'Эта страница работает только внутри Telegram: кнопка «Трекер» в чате с ботом.'); return; }
     try {
-      const res = await fetch(API, { method: 'POST', body: new URLSearchParams({ initData: tg.initData }), cache: 'no-store', credentials: 'omit' });
-      if (res.status === 403) { showError('Нет доступа', 'Напишите боту /start в личке. Если не помогло, обратитесь к руководителю отдела.'); return; }
-      const data = await res.json();
-      if (!data.ok) throw new Error('bad');
+      const { status, data } = await post({ action: 'list' });
+      if (status === 403) { showError('Нет доступа', 'Напишите боту /start в личке. Если не помогло, обратитесь к руководителю отдела.'); return; }
+      if (!data || !data.ok) throw new Error('bad');
       state.people = data.people || {};
-      state.me = (data.me || '').toLowerCase();
+      state.team = data.team || [];
+      state.managers = (data.managers || []).map(lc);
+      state.me = lc(data.me);
       state.tasks = (data.tasks || []).map((t) => {
-        const o = { num: Number(t.num), created_at: t.created_at, updated_at: t.updated_at, done_at: t.done_at, due: t.due };
-        ['title', 'type', 'counterparty', 'assignee', 'status', 'blocker', 'author', 'last_note'].forEach((k) => { o[k] = b64(t[k]); });
+        const o = { num: Number(t.num), created_at: t.created_at, updated_at: t.updated_at, done_at: t.done_at, due: t.due, link: t.link || '' };
+        ['title', 'type', 'counterparty', 'assignee', 'status', 'blocker', 'author', 'last_note', 'history'].forEach((k) => { o[k] = b64(t[k]); });
         return o;
       }).filter((t) => t.num && t.title && !/^DEBUG/i.test(t.title));
       $('updated').textContent = 'обновлено ' + new Date(data.generated || Date.now()).toLocaleTimeString('ru-RU', { timeZone: TZ, hour: '2-digit', minute: '2-digit' });
-      $('loading').hidden = true; $('app').hidden = false;
+      $('loading').hidden = true; $('app').hidden = false; $('new').hidden = false;
       render();
     } catch (e) {
       showError('Не удалось загрузить задачи', 'Проверьте интернет и нажмите «Обновить».');
     }
   }
 
+  async function act(t, op, value = '', okMsg = 'Готово') {
+    if (state.busy) return;
+    state.busy = true; render();
+    try {
+      const { status, data } = await post({ action: 'act', op, num: String(t.num), value });
+      if (status === 403 && data && data.error === 'no_rights') {
+        haptic('error');
+        alertBox(op === 'done' ? 'Закрыть задачу может ответственный или руководитель.' : 'Отменить задачу может её автор или руководитель.');
+      } else if (!data || !data.ok) {
+        haptic('error'); alertBox('Не получилось сохранить. Попробуйте ещё раз.');
+      } else {
+        haptic('success'); toast(okMsg); state.editor = null;
+        await load();
+      }
+    } catch (e) { haptic('error'); alertBox('Нет связи. Попробуйте ещё раз.'); }
+    state.busy = false; render();
+  }
+
   const isOpen = (t) => t.status !== 'done' && t.status !== 'cancelled';
 
   function render() {
     const now = Date.now(), today = day(now);
-    const open = state.tasks.filter(isOpen);
-    open.forEach((t) => {
+    state.tasks.forEach((t) => {
       t.age = Math.max(0, Math.floor((now - Date.parse(t.created_at)) / DAY));
       t.idle = Math.max(0, Math.floor((now - Date.parse(t.updated_at || t.created_at)) / DAY));
       t.dueDay = t.due ? day(t.due) : '';
     });
+    const open = state.tasks.filter(isOpen);
     const done = state.tasks.filter((t) => t.status === 'done' && t.done_at);
     $('k-open').textContent = open.length;
     $('k-blocked').textContent = open.filter((t) => t.status === 'blocked').length;
@@ -204,11 +274,100 @@
     $('k-closed').textContent = done.filter((t) => now - Date.parse(t.done_at) <= 7 * DAY).length;
     renderTasks(open, today);
     renderPeople(open, done, now);
-    renderDone(done, now);
+    renderDone(done, now, today);
+  }
+
+  function card(t, today) {
+    const c = el('article', 'card');
+    const top = el('div', 'top');
+    top.append(el('span', 'num', '#' + t.num), el('span', 'title', t.title), el('span', 'pill ' + t.status, STATUS[t.status] || t.status));
+    top.addEventListener('click', () => { state.open = state.open === t.num ? null : t.num; state.editor = null; render(); });
+    const meta = el('div', 'meta');
+    meta.append(el('span', null, nameOf(t.assignee)));
+    if (t.counterparty) meta.append(el('span', null, t.counterparty));
+    if (isOpen(t)) {
+      meta.append(el('span', t.age >= 7 ? 'bad' : t.age >= 3 ? 'warn' : null, `открыта ${t.age} дн.`));
+      if (t.idle >= 3) meta.append(el('span', 'warn', `без движения ${t.idle} дн.`));
+      if (t.dueDay) meta.append(el('span', t.dueDay < today ? 'bad' : null, `⏰ ${ddmm(t.dueDay)}${t.dueDay < today ? ' просрочено' : ''}`));
+    } else if (t.done_at) {
+      meta.append(el('span', null, '✅ ' + ddmm(day(t.done_at))));
+    }
+    c.append(top, meta);
+    if (t.status === 'blocked' && t.blocker) c.append(el('div', 'note blk', '⛔ ' + t.blocker));
+    if (t.last_note && state.open !== t.num) c.append(el('div', 'note plain', t.last_note));
+    if (state.open === t.num) c.append(detail(t));
+    return c;
+  }
+
+  function detail(t) {
+    const d = el('div', 'detail');
+    if (t.last_note) d.append(el('div', 'note plain', '📝 ' + t.last_note));
+    const me = state.me, mgr = state.managers.includes(me);
+    const canClose = mgr || lc(t.assignee) === me;
+    const canCancel = mgr || lc(t.author) === me;
+    const a = el('div', 'actions');
+    const btn = (label, cls, fn, enabled = true) => { const b = el('button', 'act ' + (cls || ''), label); b.type = 'button'; b.disabled = state.busy || !enabled; b.addEventListener('click', fn); a.append(b); };
+    if (isOpen(t)) {
+      if (canClose) btn('✅ Закрыть', 'primary', () => act(t, 'done', '', `#${t.num} закрыта`));
+      if (lc(t.assignee) !== me || t.status === 'new') btn('🙋 Беру', '', () => act(t, 'take', '', `#${t.num} у вас в работе`));
+      if (t.status === 'blocked') btn('🔓 Снять блокер', '', () => act(t, 'unblock', '', 'Блокер снят'));
+      else btn('⛔ Блокер', '', () => { state.editor = { num: t.num, op: 'block' }; render(); });
+      btn('👤 Передать', '', () => { state.editor = { num: t.num, op: 'assign' }; render(); });
+      btn('⏰ Срок', '', () => { state.editor = { num: t.num, op: 'due' }; render(); });
+      btn('📝 Заметка', '', () => { state.editor = { num: t.num, op: 'note' }; render(); });
+      if (canCancel) btn('🚫 Не нужна', 'danger', () => { state.editor = { num: t.num, op: 'cancel' }; render(); });
+    } else {
+      btn('🔁 Открыть снова', '', () => act(t, 'reopen', '', `#${t.num} снова открыта`));
+    }
+    d.append(a);
+    if (state.editor && state.editor.num === t.num) d.append(editor(t, state.editor.op));
+    if (t.history.trim()) {
+      const h = el('div', 'history'); h.append(el('b', null, 'История'));
+      t.history.split('\n').map((s) => s.trim()).filter(Boolean).forEach((line) => h.append(el('div', null, line)));
+      d.append(h);
+    }
+    const info = el('div', 'history');
+    info.append(el('div', null, `Создана ${ddmm(day(t.created_at))}${t.author ? ' · ' + nameOf(t.author) : ''}${t.type ? ' · ' + t.type : ''}`));
+    if (t.link) { const l = el('a', null, 'Открыть сообщение в чате'); l.href = t.link; l.addEventListener('click', (e) => { e.preventDefault(); try { tg.openTelegramLink(t.link); } catch (er) { location.href = t.link; } }); info.append(l); }
+    d.append(info);
+    return d;
+  }
+
+  function editor(t, op) {
+    const box = el('div', 'editor');
+    let input;
+    if (op === 'assign') {
+      input = el('select');
+      state.team.forEach((h) => { const o = el('option', null, nameOf(h)); o.value = h; if (h === lc(t.assignee)) o.selected = true; input.append(o); });
+    } else if (op === 'due') {
+      input = el('input'); input.type = 'date'; input.value = t.dueDay || '';
+    } else if (op === 'cancel') {
+      box.append(el('div', 'note plain', 'Задача пропадёт из списка открытых. Её можно будет вернуть во вкладке «Закрыто».'));
+    } else {
+      input = el('textarea'); input.placeholder = op === 'block' ? 'Что мешает? Например: ждём договор от МТС' : 'Что нового по задаче';
+      if (op === 'note') input.value = t.last_note || '';
+    }
+    if (input) box.append(input);
+    const row = el('div', 'row');
+    const save = el('button', 'act primary', op === 'cancel' ? 'Да, не нужна' : op === 'due' ? 'Сохранить срок' : 'Сохранить'); save.type = 'button';
+    save.disabled = state.busy;
+    save.addEventListener('click', () => {
+      const v = input ? input.value.trim() : '';
+      if ((op === 'block' || op === 'note') && !v) { input.focus(); return; }
+      const msgs = { block: 'Блокер отмечен', assign: 'Задача передана', due: v ? 'Срок сохранён' : 'Срок снят', note: 'Заметка сохранена', cancel: 'Задача отменена' };
+      act(t, op, v, msgs[op]);
+    });
+    const cancel = el('button', 'act', 'Отмена'); cancel.type = 'button';
+    cancel.addEventListener('click', () => { state.editor = null; render(); });
+    row.append(save, cancel);
+    if (op === 'due' && t.dueDay) { const clr = el('button', 'act', 'Убрать срок'); clr.type = 'button'; clr.addEventListener('click', () => act(t, 'due', '', 'Срок снят')); row.append(clr); }
+    box.append(row);
+    setTimeout(() => { if (input && document.activeElement !== input && op !== 'assign') input.focus(); }, 0);
+    return box;
   }
 
   function renderTasks(open, today) {
-    const people = [...new Set(open.map((t) => (t.assignee || '').toLowerCase()))].sort((a, b) => nameOf(a).localeCompare(nameOf(b), 'ru'));
+    const people = [...new Set(open.map((t) => lc(t.assignee)))].sort((a, b) => nameOf(a).localeCompare(nameOf(b), 'ru'));
     const who = $('who');
     const chip = (label, val) => {
       const b = el('button', 'chip', label); b.type = 'button';
@@ -216,39 +375,23 @@
       b.addEventListener('click', () => { state.who = val; render(); });
       return b;
     };
-    const mine = open.filter((t) => (t.assignee || '').toLowerCase() === state.me).length;
+    const mine = open.filter((t) => lc(t.assignee) === state.me).length;
     who.replaceChildren(chip(`Все · ${open.length}`, null), ...(state.me && mine ? [chip(`Мои · ${mine}`, state.me)] : []),
-      ...people.filter((p) => p !== state.me).map((p) => chip(`${nameOf(p)} · ${open.filter((t) => (t.assignee || '').toLowerCase() === p).length}`, p)));
+      ...people.filter((p) => p !== state.me).map((p) => chip(`${nameOf(p)} · ${open.filter((t) => lc(t.assignee) === p).length}`, p)));
     $('only-blocked').setAttribute('aria-pressed', String(state.onlyBlocked));
     $('sort').textContent = state.oldestFirst ? 'Сначала давние' : 'Сначала новые';
-
     const q = state.q.trim().toLowerCase();
-    let rows = open.filter((t) => (!state.who || (t.assignee || '').toLowerCase() === state.who) && (!state.onlyBlocked || t.status === 'blocked')
-      && (!q || [t.num, t.title, t.counterparty, t.blocker, t.last_note, nameOf(t.assignee)].join(' ').toLowerCase().includes(q)));
-    rows.sort((a, b) => state.oldestFirst ? (b.age - a.age || a.num - b.num) : (a.age - b.age || b.num - a.num));
-
+    const rows = open.filter((t) => (!state.who || lc(t.assignee) === state.who) && (!state.onlyBlocked || t.status === 'blocked')
+      && (!q || [t.num, t.title, t.counterparty, t.blocker, t.last_note, nameOf(t.assignee)].join(' ').toLowerCase().includes(q)))
+      .sort((a, b) => state.oldestFirst ? (b.age - a.age || a.num - b.num) : (a.age - b.age || b.num - a.num));
     const list = $('list');
     if (!rows.length) { list.replaceChildren(el('div', 'state', open.length ? 'Под эти условия задач нет.' : 'Открытых задач нет 🎉')); return; }
-    list.replaceChildren(...rows.map((t) => {
-      const c = el('article', 'card');
-      const top = el('div', 'top');
-      top.append(el('span', 'num', '#' + t.num), el('span', 'title', t.title), el('span', 'pill ' + t.status, STATUS[t.status] || t.status));
-      const meta = el('div', 'meta');
-      meta.append(el('span', null, nameOf(t.assignee)));
-      if (t.counterparty) meta.append(el('span', null, t.counterparty));
-      meta.append(el('span', t.age >= 7 ? 'bad' : t.age >= 3 ? 'warn' : null, `открыта ${t.age} дн.`));
-      if (t.idle >= 3) meta.append(el('span', 'warn', `без движения ${t.idle} дн.`));
-      if (t.dueDay) meta.append(el('span', t.dueDay < today ? 'bad' : null, `⏰ ${ddmm(t.dueDay)}${t.dueDay < today ? ' просрочено' : ''}`));
-      c.append(top, meta);
-      if (t.status === 'blocked' && t.blocker) c.append(el('div', 'note blk', '⛔ ' + t.blocker));
-      if (t.last_note) c.append(el('div', 'note plain', t.last_note));
-      return c;
-    }));
+    list.replaceChildren(...rows.map((t) => card(t, today)));
   }
 
   function renderPeople(open, done, now) {
     const m = new Map();
-    const get = (h) => { const k = (h || '—').toLowerCase(); if (!m.has(k)) m.set(k, { k, open: 0, in_progress: 0, blocked: 0, new: 0, oldest: 0, c7: 0, c30: 0 }); return m.get(k); };
+    const get = (h) => { const k = lc(h) || '—'; if (!m.has(k)) m.set(k, { k, open: 0, in_progress: 0, blocked: 0, new: 0, oldest: 0, c7: 0, c30: 0 }); return m.get(k); };
     open.forEach((t) => { const p = get(t.assignee); p.open++; if (p[t.status] != null) p[t.status]++; p.oldest = Math.max(p.oldest, t.age); });
     done.forEach((t) => { const p = get(t.assignee); const ago = now - Date.parse(t.done_at); if (ago <= 7 * DAY) p.c7++; if (ago <= 30 * DAY) p.c30++; });
     const rows = [...m.values()].sort((a, b) => b.open - a.open || b.c30 - a.c30);
@@ -266,7 +409,7 @@
     }));
   }
 
-  function renderDone(done, now) {
+  function renderDone(done, now, today) {
     const days = Array.from({ length: 14 }, (_, i) => day(now - (13 - i) * DAY));
     const counts = days.map((d) => done.filter((t) => day(t.done_at) === d).length);
     const max = Math.max(3, ...counts);
@@ -276,14 +419,9 @@
       if (n) b.append(el('i', null, String(n)));
       return b;
     }));
-    $('days').replaceChildren(...days.map((d, i) => el('span', null, i % 2 === 13 % 2 ? ddmm(d) : '')));
-    const recent = done.slice().sort((a, b) => Date.parse(b.done_at) - Date.parse(a.done_at)).slice(0, 20);
-    $('recent').replaceChildren(...(recent.length ? recent.map((t) => {
-      const c = el('article', 'card');
-      const top = el('div', 'top'); top.append(el('span', 'num', '#' + t.num), el('span', 'title', t.title));
-      const meta = el('div', 'meta'); meta.append(el('span', null, nameOf(t.assignee)), el('span', null, '✅ ' + ddmm(day(t.done_at))));
-      c.append(top, meta); return c;
-    }) : [el('div', 'state', 'За последние 60 дней закрытых задач нет.')]));
+    $('days').replaceChildren(...days.map((d, i) => el('span', null, (13 - i) % 2 === 0 ? ddmm(d) : '')));
+    const recent = state.tasks.filter((t) => !isOpen(t)).sort((a, b) => Date.parse(b.done_at || b.updated_at) - Date.parse(a.done_at || a.updated_at)).slice(0, 30);
+    $('recent').replaceChildren(...(recent.length ? recent.map((t) => card(t, today)) : [el('div', 'state', 'За последние 60 дней закрытых задач нет.')]));
   }
 
   function setTab(name) {
@@ -292,11 +430,67 @@
     ['tasks', 'people', 'done'].forEach((t) => { $('tab-' + t).hidden = t !== name; });
   }
 
+  function openSheet() {
+    const sel = $('n-who');
+    sel.replaceChildren(...state.team.map((h) => { const o = el('option', null, nameOf(h)); o.value = h; if (h === state.me) o.selected = true; return o; }));
+    $('n-title').value = ''; $('n-due').value = '';
+    $('sheet').hidden = false; setTimeout(() => $('n-title').focus(), 50);
+  }
+  async function createTask() {
+    const title = $('n-title').value.trim();
+    if (!title) { $('n-title').focus(); return; }
+    $('n-save').disabled = true;
+    try {
+      const { data } = await post({ action: 'act', op: 'create', value: title, who: $('n-who').value, due: $('n-due').value });
+      if (data && data.ok) { haptic('success'); $('sheet').hidden = true; toast(`Создана #${data.num}`); await load(); }
+      else { haptic('error'); alertBox('Не получилось создать задачу. Попробуйте ещё раз.'); }
+    } catch (e) { haptic('error'); alertBox('Нет связи. Попробуйте ещё раз.'); }
+    $('n-save').disabled = false;
+  }
+
+  async function archiveSearch() {
+    const q = $('aq').value.trim();
+    const box = $('archive');
+    if (!q) { $('aq').focus(); return; }
+    box.replaceChildren(el('div', 'skeleton'));
+    $('asearch').disabled = true;
+    try {
+      const { status, data } = await post({ action: 'archive', value: q });
+      const rows = (data && data.ok && data.rows) || [];
+      if (status >= 400 && status !== 200) throw new Error('bad');
+      if (!rows.length) { box.replaceChildren(el('div', 'state', 'В архиве ничего не нашлось.')); }
+      else box.replaceChildren(...rows.map((r) => {
+        const t = {}; ['title', 'counterparty', 'assignee', 'status', 'blocker', 'last_note', 'history'].forEach((k) => { t[k] = b64(r[k]); });
+        const c = el('article', 'card');
+        const top = el('div', 'top'); top.append(el('span', 'num', '#' + r.num), el('span', 'title', t.title), el('span', 'pill done', t.status || 'в архиве'));
+        const meta = el('div', 'meta'); meta.append(el('span', null, nameOf(t.assignee)));
+        if (t.counterparty) meta.append(el('span', null, t.counterparty));
+        meta.append(el('span', null, `создана ${r.created || '—'}`), el('span', null, `закрыта ${r.done || '—'}`));
+        c.append(top, meta);
+        if (t.last_note) c.append(el('div', 'note plain', t.last_note));
+        if (t.history.trim()) {
+          const h = el('div', 'history detail'); h.hidden = true;
+          t.history.split('\n').map((x) => x.trim()).filter(Boolean).forEach((line) => h.append(el('div', null, line)));
+          top.addEventListener('click', () => { h.hidden = !h.hidden; });
+          c.append(h);
+        }
+        return c;
+      }));
+    } catch (e) { box.replaceChildren(el('div', 'state', 'Не получилось обратиться к архиву. Попробуйте ещё раз.')); }
+    $('asearch').disabled = false;
+  }
+  $('asearch').addEventListener('click', archiveSearch);
+  $('aq').addEventListener('keydown', (e) => { if (e.key === 'Enter') archiveSearch(); });
+
   document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.tab)));
   $('only-blocked').addEventListener('click', () => { state.onlyBlocked = !state.onlyBlocked; render(); });
   $('sort').addEventListener('click', () => { state.oldestFirst = !state.oldestFirst; render(); });
   $('q').addEventListener('input', (e) => { state.q = e.target.value; render(); });
   $('reload').addEventListener('click', load);
+  $('new').addEventListener('click', openSheet);
+  $('n-cancel').addEventListener('click', () => { $('sheet').hidden = true; });
+  $('sheet').addEventListener('click', (e) => { if (e.target === $('sheet')) $('sheet').hidden = true; });
+  $('n-save').addEventListener('click', createTask);
 
   if (tg) { tg.ready(); tg.expand(); }
   load();
