@@ -61,6 +61,15 @@
   .act.danger { color: var(--bad); }
   .act:disabled { opacity: .5; }
   .editor { display: grid; gap: 6px; }
+  .check { display: grid; gap: 4px; font-size: 14px; }
+  .check b { font-size: 13px; }
+  .check .ci { display: flex; align-items: center; gap: 8px; }
+  .check .ci input { width: auto; margin: 0; }
+  .check .ci span { flex: 1; overflow-wrap: anywhere; }
+  .check .ci.done span { text-decoration: line-through; color: var(--muted); }
+  .check .x { border: 0; background: none; color: var(--muted); font-size: 18px; cursor: pointer; padding: 0 4px; }
+  .check .row { display: flex; gap: 6px; }
+  .check .row .act { flex: none; }
   .editor .row { display: flex; gap: 6px; }
   .history { font-size: 12px; color: var(--muted); display: grid; gap: 2px; }
   .history b { font-weight: 600; color: var(--fg); font-size: 13px; }
@@ -177,6 +186,8 @@
     <label>Что сделать<textarea id="n-title" placeholder="Например: Оплатить счёт Ростелекома №4512"></textarea></label>
     <label>Ответственный<select id="n-who"></select></label>
     <label>Срок (необязательно)<input id="n-due" type="date"></label>
+    <label>Шаги (необязательно, каждый с новой строки)<textarea id="n-check" placeholder="Запросить КП&#10;Согласовать&#10;Подписать договор"></textarea></label>
+    <label style="display:flex;align-items:center;gap:8px"><input id="n-urgent" type="checkbox" style="width:auto"> 🔥 Срочно</label>
     <label style="display:flex;align-items:center;gap:8px"><input id="n-meeting" type="checkbox" style="width:auto"> 🗓 С собрания</label>
     <div class="actions">
       <button class="act primary" id="n-save" type="button">Создать</button>
@@ -231,7 +242,8 @@
       state.me = lc(data.me);
       state.tasks = (data.tasks || []).map((t) => {
         const o = { num: Number(t.num), created_at: t.created_at, updated_at: t.updated_at, done_at: t.done_at, due: t.due, link: t.link || '' };
-        ['title', 'type', 'counterparty', 'assignee', 'status', 'blocker', 'author', 'last_note', 'history', 'tag'].forEach((k) => { o[k] = b64(t[k]); });
+        ['title', 'type', 'counterparty', 'assignee', 'status', 'blocker', 'author', 'last_note', 'history', 'tag', 'priority', 'checklist'].forEach((k) => { o[k] = b64(t[k]); });
+        o.items = parseCheck(o.checklist);
         return o;
       }).filter((t) => t.num && t.title && !/^DEBUG/i.test(t.title));
       if (!state.whoInit) { state.whoInit = true; if (state.me) state.who = state.me; }
@@ -243,11 +255,11 @@
     }
   }
 
-  async function act(t, op, value = '', okMsg = 'Готово') {
+  async function act(t, op, value = '', okMsg = 'Готово', extra = {}) {
     if (state.busy) return;
     state.busy = true; render();
     try {
-      const { status, data } = await post({ action: 'act', op, num: String(t.num), value });
+      const { status, data } = await post({ action: 'act', op, num: String(t.num), value, ...extra });
       if (status === 403 && data && data.error === 'no_rights') {
         haptic('error');
         alertBox(op === 'done' ? 'Закрыть задачу может ответственный или руководитель.' : 'Отменить задачу может её автор или руководитель.');
@@ -261,6 +273,10 @@
     state.busy = false; render();
   }
 
+  function parseCheck(txt) {
+    return (txt || '').split('\n').map((x) => x.trim()).filter(Boolean).map((x) => x.startsWith('✓') ? { done: true, text: x.replace(/^✓\s*/, '') } : { done: false, text: x.replace(/^[☐-]\s*/, '') });
+  }
+  const dumpCheck = (items) => items.map((i) => (i.done ? '✓ ' : '') + i.text).join('\n');
   const isOpen = (t) => t.status !== 'done' && t.status !== 'cancelled';
 
   function render() {
@@ -284,10 +300,11 @@
   function card(t, today) {
     const c = el('article', 'card');
     const top = el('div', 'top');
-    top.append(el('span', 'num', '#' + t.num), el('span', 'title', t.title), el('span', 'pill ' + t.status, STATUS[t.status] || t.status));
+    top.append(el('span', 'num', '#' + t.num), el('span', 'title', (t.priority === 'urgent' ? '🔥 ' : '') + t.title), el('span', 'pill ' + t.status, STATUS[t.status] || t.status));
     top.addEventListener('click', () => { state.open = state.open === t.num ? null : t.num; state.editor = null; render(); });
     const meta = el('div', 'meta');
     if (t.tag === 'meeting') meta.append(el('span', 'tag', '🗓 С собрания'));
+    if (t.items.length) { const d = t.items.filter((i) => i.done).length; meta.append(el('span', d === t.items.length ? null : 'warn', `☑ ${d}/${t.items.length}`)); }
     meta.append(el('span', null, nameOf(t.assignee)));
     if (t.counterparty) meta.append(el('span', null, t.counterparty));
     if (isOpen(t)) {
@@ -313,7 +330,9 @@
     if (t.due) L.push(`Срок: ${ddmm(day(t.due))}`);
     L.push(`Создана: ${ddmm(day(t.created_at))}${t.author ? ' (' + nameOf(t.author) + ')' : ''}`);
     if (t.done_at) L.push(`Закрыта: ${ddmm(day(t.done_at))}`);
+    if (t.priority === 'urgent') L.push('Приоритет: срочно');
     if (t.status === 'blocked' && t.blocker) L.push(`Блокер: ${t.blocker}`);
+    if (t.items.length) { L.push('', 'Чек-лист:'); t.items.forEach((i) => L.push(`* [${i.done ? 'x' : ' '}] ${i.text}`)); }
     const h = t.history.split('\n').map((x) => x.trim()).filter(Boolean);
     if (h.length) { L.push('', 'Ход работ и комментарии:'); h.forEach((x) => L.push('* ' + x)); }
     return L.join('\n');
@@ -337,6 +356,26 @@
     pane.append(el('b', null, 'Выделите и скопируйте текст'), box, close); ov.append(pane); document.body.append(ov); box.focus(); box.select();
   }
 
+  function checklistBox(t) {
+    const box = el('div', 'check');
+    box.append(el('b', null, 'Чек-лист' + (t.items.length ? ` · ${t.items.filter((i) => i.done).length}/${t.items.length}` : '')));
+    const save = (items, info, msg) => act(t, 'checklist', dumpCheck(items), msg, { info });
+    t.items.forEach((it, i) => {
+      const row = el('label', 'ci' + (it.done ? ' done' : ''));
+      const cb = el('input'); cb.type = 'checkbox'; cb.checked = it.done; cb.disabled = state.busy;
+      cb.addEventListener('change', () => { const items = t.items.map((x) => ({ ...x })); items[i].done = cb.checked; save(items, (cb.checked ? '✔ ' : '↺ ') + it.text, cb.checked ? 'Пункт выполнен' : 'Пункт снова открыт'); });
+      const del = el('button', 'x', '×'); del.type = 'button'; del.title = 'Удалить пункт'; del.disabled = state.busy;
+      del.addEventListener('click', (e) => { e.preventDefault(); const items = t.items.filter((_, j) => j !== i); save(items, 'удалён пункт «' + it.text + '»', 'Пункт удалён'); });
+      row.append(cb, el('span', null, it.text), del); box.append(row);
+    });
+    const add = el('div', 'row'); const inp = el('input'); inp.placeholder = 'Добавить шаг'; inp.disabled = state.busy;
+    const go = el('button', 'act', '＋'); go.type = 'button'; go.disabled = state.busy;
+    const submit = () => { const v = inp.value.trim(); if (!v) { inp.focus(); return; } save([...t.items, { done: false, text: v }], '+ ' + v, 'Шаг добавлен'); };
+    go.addEventListener('click', submit); inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+    add.append(inp, go); box.append(add);
+    return box;
+  }
+
   function detail(t) {
     const d = el('div', 'detail');
     if (t.last_note) d.append(el('div', 'note plain', '📝 ' + t.last_note));
@@ -357,10 +396,12 @@
     } else {
       btn('🔁 Открыть снова', '', () => act(t, 'reopen', '', `#${t.num} снова открыта`));
     }
+    if (isOpen(t)) btn(t.priority === 'urgent' ? '🔥 Уже не срочно' : '🔥 Срочно', '', () => act(t, 'urgent', t.priority === 'urgent' ? '' : 'urgent', t.priority === 'urgent' ? 'Срочность снята' : 'Отмечена срочной'));
     btn(t.tag === 'meeting' ? '🗓 Убрать «С собрания»' : '🗓 С собрания', '', () => act(t, 'tag', t.tag === 'meeting' ? '' : 'meeting', t.tag === 'meeting' ? 'Тег снят' : 'Отмечена «С собрания»'));
     btn('📋 Для Redmine', '', () => copyText(redmineText(t)));
     d.append(a);
     if (state.editor && state.editor.num === t.num) d.append(editor(t, state.editor.op));
+    d.append(checklistBox(t));
     if (t.history.trim()) {
       const h = el('div', 'history'); h.append(el('b', null, 'История'));
       t.history.split('\n').map((s) => s.trim()).filter(Boolean).forEach((line) => h.append(el('div', null, line)));
@@ -423,7 +464,7 @@
     const q = state.q.trim().toLowerCase();
     const rows = open.filter((t) => (!state.who || lc(t.assignee) === state.who) && (!state.onlyBlocked || t.status === 'blocked') && (!state.onlyMeeting || t.tag === 'meeting')
       && (!q || [t.num, t.title, t.counterparty, t.blocker, t.last_note, nameOf(t.assignee)].join(' ').toLowerCase().includes(q)))
-      .sort((a, b) => state.oldestFirst ? (b.age - a.age || a.num - b.num) : (a.age - b.age || b.num - a.num));
+      .sort((a, b) => ((b.priority === 'urgent') - (a.priority === 'urgent')) || (state.oldestFirst ? (b.age - a.age || a.num - b.num) : (a.age - b.age || b.num - a.num)));
     const list = $('list');
     if (!rows.length) { list.replaceChildren(el('div', 'state', open.length ? 'Под эти условия задач нет.' : 'Открытых задач нет 🎉')); return; }
     list.replaceChildren(...rows.map((t) => card(t, today)));
@@ -473,7 +514,7 @@
   function openSheet() {
     const sel = $('n-who');
     sel.replaceChildren(...state.team.map((h) => { const o = el('option', null, nameOf(h)); o.value = h; if (h === state.me) o.selected = true; return o; }));
-    $('n-title').value = ''; $('n-due').value = ''; $('n-meeting').checked = false;
+    $('n-title').value = ''; $('n-due').value = ''; $('n-meeting').checked = false; $('n-urgent').checked = false; $('n-check').value = '';
     $('sheet').hidden = false; setTimeout(() => $('n-title').focus(), 50);
   }
   async function createTask() {
@@ -481,7 +522,7 @@
     if (!title) { $('n-title').focus(); return; }
     $('n-save').disabled = true;
     try {
-      const { data } = await post({ action: 'act', op: 'create', value: title, who: $('n-who').value, due: $('n-due').value, tag: $('n-meeting').checked ? 'meeting' : '' });
+      const { data } = await post({ action: 'act', op: 'create', value: title, who: $('n-who').value, due: $('n-due').value, tag: $('n-meeting').checked ? 'meeting' : '', priority: $('n-urgent').checked ? 'urgent' : '', checklist: $('n-check').value.split('\n').map((x) => x.trim()).filter(Boolean).join('\n') });
       if (data && data.ok) { haptic('success'); $('sheet').hidden = true; toast(`Создана #${data.num}`); await load(); }
       else { haptic('error'); alertBox('Не получилось создать задачу. Попробуйте ещё раз.'); }
     } catch (e) { haptic('error'); alertBox('Нет связи. Попробуйте ещё раз.'); }
