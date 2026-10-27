@@ -299,6 +299,38 @@
     return c;
   }
 
+  function redmineText(t) {
+    const L = [`#${t.num} ${t.title}`, '',
+      `Статус: ${STATUS[t.status] || t.status}`,
+      `Ответственный: ${nameOf(t.assignee)}`];
+    if (t.counterparty) L.push(`Контрагент: ${t.counterparty}`);
+    if (t.due) L.push(`Срок: ${ddmm(day(t.due))}`);
+    L.push(`Создана: ${ddmm(day(t.created_at))}${t.author ? ' (' + nameOf(t.author) + ')' : ''}`);
+    if (t.done_at) L.push(`Закрыта: ${ddmm(day(t.done_at))}`);
+    if (t.status === 'blocked' && t.blocker) L.push(`Блокер: ${t.blocker}`);
+    const h = t.history.split('\n').map((x) => x.trim()).filter(Boolean);
+    if (h.length) { L.push('', 'Ход работ и комментарии:'); h.forEach((x) => L.push('* ' + x)); }
+    return L.join('\n');
+  }
+
+  async function copyText(text) {
+    let ok = false;
+    try { await navigator.clipboard.writeText(text); ok = true; } catch (e) {}
+    if (!ok) {
+      const ta = el('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.append(ta); ta.focus(); ta.select();
+      try { ok = document.execCommand('copy'); } catch (e) {}
+      ta.remove();
+    }
+    if (ok) { toast('Скопировано — вставьте в Redmine'); return; }
+    const ov = el('div'); ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50';
+    const pane = el('div'); pane.style.cssText = 'background:var(--bg,#fff);color:inherit;border-radius:12px;padding:12px;width:100%;max-width:520px;display:grid;gap:8px';
+    const box = el('textarea'); box.value = text; box.readOnly = true;
+    box.style.cssText = 'width:100%;min-height:220px;font:inherit;font-size:13px;box-sizing:border-box';
+    const close = el('button', 'act primary', 'Закрыть'); close.type = 'button'; close.addEventListener('click', () => ov.remove());
+    pane.append(el('b', null, 'Выделите и скопируйте текст'), box, close); ov.append(pane); document.body.append(ov); box.focus(); box.select();
+  }
+
   function detail(t) {
     const d = el('div', 'detail');
     if (t.last_note) d.append(el('div', 'note plain', '📝 ' + t.last_note));
@@ -314,11 +346,12 @@
       else btn('⛔ Блокер', '', () => { state.editor = { num: t.num, op: 'block' }; render(); });
       btn('👤 Передать', '', () => { state.editor = { num: t.num, op: 'assign' }; render(); });
       btn('⏰ Срок', '', () => { state.editor = { num: t.num, op: 'due' }; render(); });
-      btn('📝 Заметка', '', () => { state.editor = { num: t.num, op: 'note' }; render(); });
+      btn('💬 Комментарий', '', () => { state.editor = { num: t.num, op: 'note' }; render(); });
       if (canCancel) btn('🚫 Не нужна', 'danger', () => { state.editor = { num: t.num, op: 'cancel' }; render(); });
     } else {
       btn('🔁 Открыть снова', '', () => act(t, 'reopen', '', `#${t.num} снова открыта`));
     }
+    btn('📋 Для Redmine', '', () => copyText(redmineText(t)));
     d.append(a);
     if (state.editor && state.editor.num === t.num) d.append(editor(t, state.editor.op));
     if (t.history.trim()) {
@@ -345,7 +378,6 @@
       box.append(el('div', 'note plain', 'Задача пропадёт из списка открытых. Её можно будет вернуть во вкладке «Закрыто».'));
     } else {
       input = el('textarea'); input.placeholder = op === 'block' ? 'Что мешает? Например: ждём договор от МТС' : 'Что нового по задаче';
-      if (op === 'note') input.value = t.last_note || '';
     }
     if (input) box.append(input);
     const row = el('div', 'row');
@@ -354,7 +386,7 @@
     save.addEventListener('click', () => {
       const v = input ? input.value.trim() : '';
       if ((op === 'block' || op === 'note') && !v) { input.focus(); return; }
-      const msgs = { block: 'Блокер отмечен', assign: 'Задача передана', due: v ? 'Срок сохранён' : 'Срок снят', note: 'Заметка сохранена', cancel: 'Задача отменена' };
+      const msgs = { block: 'Блокер отмечен', assign: 'Задача передана', due: v ? 'Срок сохранён' : 'Срок снят', note: 'Комментарий добавлен', cancel: 'Задача отменена' };
       act(t, op, v, msgs[op]);
     });
     const cancel = el('button', 'act', 'Отмена'); cancel.type = 'button';
