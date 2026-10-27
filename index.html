@@ -64,6 +64,7 @@
   .editor .row { display: flex; gap: 6px; }
   .history { font-size: 12px; color: var(--muted); display: grid; gap: 2px; }
   .history b { font-weight: 600; color: var(--fg); font-size: 13px; }
+  .meta .tag { color: var(--accent, #2a7ae2); font-weight: 600; }
   .pill { font-size: 12px; border-radius: 999px; padding: 1px 8px; border: 1px solid currentColor; white-space: nowrap; }
   .pill.blocked { color: var(--bad); }
   .pill.in_progress { color: var(--ok); }
@@ -128,6 +129,7 @@
       <div class="controls" id="who"></div>
       <div class="controls">
         <button class="chip" id="only-blocked" type="button" aria-pressed="false">⛔ Только блокеры</button>
+        <button class="chip" id="only-meeting" type="button" aria-pressed="false">🗓 С собрания</button>
         <button class="chip" id="sort" type="button" aria-pressed="false">Сначала давние</button>
       </div>
       <input id="q" type="search" placeholder="Поиск: задача, контрагент, номер" aria-label="Поиск">
@@ -175,6 +177,7 @@
     <label>Что сделать<textarea id="n-title" placeholder="Например: Оплатить счёт Ростелекома №4512"></textarea></label>
     <label>Ответственный<select id="n-who"></select></label>
     <label>Срок (необязательно)<input id="n-due" type="date"></label>
+    <label style="display:flex;align-items:center;gap:8px"><input id="n-meeting" type="checkbox" style="width:auto"> 🗓 С собрания</label>
     <div class="actions">
       <button class="act primary" id="n-save" type="button">Создать</button>
       <button class="act" id="n-cancel" type="button">Отмена</button>
@@ -191,7 +194,7 @@
   const STATUS = { new: 'Новая', in_progress: 'В работе', blocked: 'Блокер', done: 'Закрыта', cancelled: 'Отменена' };
   const tg = window.Telegram && window.Telegram.WebApp;
   const $ = (id) => document.getElementById(id);
-  const state = { tasks: [], people: {}, team: [], managers: [], me: '', who: null, onlyBlocked: false, oldestFirst: true, q: '', tab: 'tasks', open: null, editor: null, busy: false };
+  const state = { tasks: [], people: {}, team: [], managers: [], me: '', who: null, whoInit: false, onlyBlocked: false, onlyMeeting: false, oldestFirst: true, q: '', tab: 'tasks', open: null, editor: null, busy: false };
 
   const b64 = (s) => { if (!s) return ''; try { return new TextDecoder().decode(Uint8Array.from(atob(s), (c) => c.charCodeAt(0))); } catch (e) { return ''; } };
   const day = (t) => new Date(t).toLocaleDateString('sv-SE', { timeZone: TZ });
@@ -228,9 +231,10 @@
       state.me = lc(data.me);
       state.tasks = (data.tasks || []).map((t) => {
         const o = { num: Number(t.num), created_at: t.created_at, updated_at: t.updated_at, done_at: t.done_at, due: t.due, link: t.link || '' };
-        ['title', 'type', 'counterparty', 'assignee', 'status', 'blocker', 'author', 'last_note', 'history'].forEach((k) => { o[k] = b64(t[k]); });
+        ['title', 'type', 'counterparty', 'assignee', 'status', 'blocker', 'author', 'last_note', 'history', 'tag'].forEach((k) => { o[k] = b64(t[k]); });
         return o;
       }).filter((t) => t.num && t.title && !/^DEBUG/i.test(t.title));
+      if (!state.whoInit) { state.whoInit = true; if (state.me) state.who = state.me; }
       $('updated').textContent = 'обновлено ' + new Date(data.generated || Date.now()).toLocaleTimeString('ru-RU', { timeZone: TZ, hour: '2-digit', minute: '2-digit' });
       $('loading').hidden = true; $('app').hidden = false; $('new').hidden = false;
       render();
@@ -283,6 +287,7 @@
     top.append(el('span', 'num', '#' + t.num), el('span', 'title', t.title), el('span', 'pill ' + t.status, STATUS[t.status] || t.status));
     top.addEventListener('click', () => { state.open = state.open === t.num ? null : t.num; state.editor = null; render(); });
     const meta = el('div', 'meta');
+    if (t.tag === 'meeting') meta.append(el('span', 'tag', '🗓 С собрания'));
     meta.append(el('span', null, nameOf(t.assignee)));
     if (t.counterparty) meta.append(el('span', null, t.counterparty));
     if (isOpen(t)) {
@@ -303,6 +308,7 @@
     const L = [`#${t.num} ${t.title}`, '',
       `Статус: ${STATUS[t.status] || t.status}`,
       `Ответственный: ${nameOf(t.assignee)}`];
+    if (t.tag === 'meeting') L.push('Источник: собрание');
     if (t.counterparty) L.push(`Контрагент: ${t.counterparty}`);
     if (t.due) L.push(`Срок: ${ddmm(day(t.due))}`);
     L.push(`Создана: ${ddmm(day(t.created_at))}${t.author ? ' (' + nameOf(t.author) + ')' : ''}`);
@@ -351,6 +357,7 @@
     } else {
       btn('🔁 Открыть снова', '', () => act(t, 'reopen', '', `#${t.num} снова открыта`));
     }
+    btn(t.tag === 'meeting' ? '🗓 Убрать «С собрания»' : '🗓 С собрания', '', () => act(t, 'tag', t.tag === 'meeting' ? '' : 'meeting', t.tag === 'meeting' ? 'Тег снят' : 'Отмечена «С собрания»'));
     btn('📋 Для Redmine', '', () => copyText(redmineText(t)));
     d.append(a);
     if (state.editor && state.editor.num === t.num) d.append(editor(t, state.editor.op));
@@ -408,12 +415,13 @@
       return b;
     };
     const mine = open.filter((t) => lc(t.assignee) === state.me).length;
-    who.replaceChildren(chip(`Все · ${open.length}`, null), ...(state.me && mine ? [chip(`Мои · ${mine}`, state.me)] : []),
-      ...people.filter((p) => p !== state.me).map((p) => chip(`${nameOf(p)} · ${open.filter((t) => lc(t.assignee) === p).length}`, p)));
+    who.replaceChildren(chip(`Все · ${open.length}`, null), ...(state.me ? [chip(`Мои · ${mine}`, state.me)] : []),
+      ...people.filter((p) => p && p !== state.me).map((p) => chip(`${nameOf(p)} · ${open.filter((t) => lc(t.assignee) === p).length}`, p)));
     $('only-blocked').setAttribute('aria-pressed', String(state.onlyBlocked));
+    $('only-meeting').setAttribute('aria-pressed', String(state.onlyMeeting));
     $('sort').textContent = state.oldestFirst ? 'Сначала давние' : 'Сначала новые';
     const q = state.q.trim().toLowerCase();
-    const rows = open.filter((t) => (!state.who || lc(t.assignee) === state.who) && (!state.onlyBlocked || t.status === 'blocked')
+    const rows = open.filter((t) => (!state.who || lc(t.assignee) === state.who) && (!state.onlyBlocked || t.status === 'blocked') && (!state.onlyMeeting || t.tag === 'meeting')
       && (!q || [t.num, t.title, t.counterparty, t.blocker, t.last_note, nameOf(t.assignee)].join(' ').toLowerCase().includes(q)))
       .sort((a, b) => state.oldestFirst ? (b.age - a.age || a.num - b.num) : (a.age - b.age || b.num - a.num));
     const list = $('list');
@@ -465,7 +473,7 @@
   function openSheet() {
     const sel = $('n-who');
     sel.replaceChildren(...state.team.map((h) => { const o = el('option', null, nameOf(h)); o.value = h; if (h === state.me) o.selected = true; return o; }));
-    $('n-title').value = ''; $('n-due').value = '';
+    $('n-title').value = ''; $('n-due').value = ''; $('n-meeting').checked = false;
     $('sheet').hidden = false; setTimeout(() => $('n-title').focus(), 50);
   }
   async function createTask() {
@@ -473,7 +481,7 @@
     if (!title) { $('n-title').focus(); return; }
     $('n-save').disabled = true;
     try {
-      const { data } = await post({ action: 'act', op: 'create', value: title, who: $('n-who').value, due: $('n-due').value });
+      const { data } = await post({ action: 'act', op: 'create', value: title, who: $('n-who').value, due: $('n-due').value, tag: $('n-meeting').checked ? 'meeting' : '' });
       if (data && data.ok) { haptic('success'); $('sheet').hidden = true; toast(`Создана #${data.num}`); await load(); }
       else { haptic('error'); alertBox('Не получилось создать задачу. Попробуйте ещё раз.'); }
     } catch (e) { haptic('error'); alertBox('Нет связи. Попробуйте ещё раз.'); }
@@ -516,6 +524,7 @@
 
   document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.tab)));
   $('only-blocked').addEventListener('click', () => { state.onlyBlocked = !state.onlyBlocked; render(); });
+  $('only-meeting').addEventListener('click', () => { state.onlyMeeting = !state.onlyMeeting; render(); });
   $('sort').addEventListener('click', () => { state.oldestFirst = !state.oldestFirst; render(); });
   $('q').addEventListener('input', (e) => { state.q = e.target.value; render(); });
   $('reload').addEventListener('click', load);
