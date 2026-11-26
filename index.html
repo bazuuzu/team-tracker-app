@@ -92,6 +92,12 @@
   .bad { color: var(--bad); }
   a { color: var(--link); }
   .people { background: var(--bg); border-radius: var(--radius); overflow-x: auto; }
+  .people caption { text-align: left; padding: 10px; color: var(--muted); font-size: 13px; }
+  .people:focus-visible { outline: 3px solid var(--fg); outline-offset: 3px; }
+  .people thead th { position: sticky; top: 0; background: var(--bg); z-index: 2; }
+  .people tbody th { position: sticky; left: 0; background: var(--bg); z-index: 1; font-size: 14px; font-weight: 400; color: var(--fg); min-width: 10rem; max-width: 12rem; }
+  .people thead th:first-child { left: 0; z-index: 3; }
+  .people .return-date { text-align: left; }
   table { border-collapse: collapse; width: 100%; font-size: 14px; font-variant-numeric: tabular-nums; }
   th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
   th:first-child, td:first-child { text-align: left; white-space: normal; }
@@ -155,9 +161,10 @@
     </section>
 
     <section class="panel" id="tab-people" style="margin-top:12px" hidden>
-      <div class="people">
+      <div class="people" tabindex="0" role="region" aria-labelledby="people-caption">
         <table>
-          <thead><tr><th>Ответственный</th><th>Открыто</th><th>В работе</th><th>⛔</th><th>Новые</th><th>Давность, дн.</th><th>Закрыто 7 дн.</th><th>30 дн.</th></tr></thead>
+          <caption id="people-caption">Задачи и доступность сотрудников</caption>
+          <thead><tr><th scope="col">Ответственный</th><th scope="col" class="return-date">Возвращение</th><th scope="col">Открыто</th><th scope="col">В работе</th><th scope="col">⛔</th><th scope="col">Новые</th><th scope="col">Давность, дн.</th><th scope="col">Закрыто 7 дн.</th><th scope="col">30 дн.</th></tr></thead>
           <tbody id="people"></tbody>
         </table>
       </div>
@@ -227,7 +234,7 @@
   const STATUS = { new: 'Новая', in_progress: 'В работе', blocked: 'Блокер', done: 'Закрыта', cancelled: 'Отменена' };
   const tg = window.Telegram && window.Telegram.WebApp;
   const $ = (id) => document.getElementById(id);
-  const state = { tasks: [], people: {}, team: [], managers: [], me: '', vacations: [], availabilityReady: false, vacationBusy: false, vacationEnd: '', vacationReturnAt: '', vacationDraftEnabled: false, vacationDraftEnd: '', who: null, whoInit: false, onlyBlocked: false, onlyMeeting: false, oldestFirst: true, q: '', tab: 'tasks', open: null, editor: null, busy: false };
+  const state = { tasks: [], people: {}, team: [], managers: [], me: '', vacations: [], vacationReturns: {}, availabilityReady: false, vacationBusy: false, vacationEnd: '', vacationReturnAt: '', vacationDraftEnabled: false, vacationDraftEnd: '', who: null, whoInit: false, onlyBlocked: false, onlyMeeting: false, oldestFirst: true, q: '', tab: 'tasks', open: null, editor: null, busy: false };
 
   const b64 = (s) => { if (!s) return ''; try { return new TextDecoder().decode(Uint8Array.from(atob(s), (c) => c.charCodeAt(0))); } catch (e) { return ''; } };
   const day = (t) => new Date(t).toLocaleDateString('sv-SE', { timeZone: TZ });
@@ -266,6 +273,9 @@
       state.me = lc(data.me);
       state.availabilityReady = Array.isArray(data.vacations);
       state.vacations = (Array.isArray(data.vacations) ? data.vacations : []).filter((h) => typeof h === 'string' && h.trim()).map(lc);
+      state.vacationReturns = Object.fromEntries((Array.isArray(data.vacation_returns) ? data.vacation_returns : [])
+        .filter((entry) => entry && typeof entry.username === 'string' && entry.username.trim())
+        .map((entry) => [lc(entry.username), typeof entry.return_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(entry.return_date) ? entry.return_date : '']));
       state.vacationEnd = onVacation(state.me) ? (data.vacation_end || '') : '';
       state.vacationReturnAt = onVacation(state.me) ? (data.return_at || '') : '';
       state.vacationDraftEnabled = onVacation(state.me);
@@ -314,6 +324,8 @@
       if (enabled) state.vacations.push(state.me);
       state.vacationEnd = data.vacation_end || '';
       state.vacationReturnAt = data.return_at || '';
+      if (enabled && state.vacationReturnAt) state.vacationReturns[state.me] = day(Date.parse(state.vacationReturnAt));
+      else delete state.vacationReturns[state.me];
       state.vacationDraftEnd = state.vacationEnd;
       $('vacation-status').textContent = enabled ? 'Режим отпуска включён' + (endDate ? ' до ' + endDate.split('-').reverse().join('.') + ' включительно' : '') + '. Личные уведомления приостановлены.' : 'Режим отпуска выключен. Личные уведомления возобновлены.';
       render();
@@ -552,7 +564,9 @@
     const rows = [...m.values()].sort((a, b) => b.open - a.open || b.c30 - a.c30);
     $('people').replaceChildren(...rows.map((p) => {
       const tr = el('tr');
-      tr.append(el('td', null, nameOf(p.k)));
+      const person = el('th', null, nameOf(p.k)); person.scope = 'row';
+      const returnDate = state.vacationReturns[p.k];
+      tr.append(person, el('td', 'return-date', onVacation(p.k) ? (returnDate ? returnDate.split('-').reverse().join('.') : 'Дата не указана') : '—'));
       [p.open, p.in_progress, p.blocked, p.new, p.open ? p.oldest : '', p.c7, p.c30].forEach((v, i) => {
         const td = el('td', null, String(v));
         if (i === 2 && v > 0) td.className = 'bad';
