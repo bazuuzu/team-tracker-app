@@ -89,6 +89,8 @@
   .pill.new { color: var(--muted); }
   .pill.done { color: var(--ok); }
   .warn { color: var(--warn); }
+  .assignment-warning { padding: 8px 10px; border-inline-start: 3px solid var(--warn); color: var(--fg); font-size: 13px; }
+  .assignment-warning:empty { padding: 0; border: 0; margin-block-start: -6px; }
   .bad { color: var(--bad); }
   a { color: var(--link); }
   .people { background: var(--bg); border-radius: var(--radius); overflow-x: auto; }
@@ -213,7 +215,8 @@
   <div class="box" role="dialog" aria-labelledby="sheet-title">
     <h2 id="sheet-title">Новая задача</h2>
     <label>Что сделать<textarea id="n-title" placeholder="Например: Оплатить счёт Ростелекома №4512"></textarea></label>
-    <label>Ответственный<select id="n-who"></select></label>
+    <label for="n-who">Ответственный<select id="n-who" aria-describedby="new-assignee-warning"></select></label>
+    <div class="assignment-warning" id="new-assignee-warning" role="status"></div>
     <label>Срок (необязательно)<input id="n-due" type="date"></label>
     <label>Шаги (необязательно, каждый с новой строки)<textarea id="n-check" placeholder="Запросить КП&#10;Согласовать&#10;Подписать договор"></textarea></label>
     <label style="display:flex;align-items:center;gap:8px"><input id="n-urgent" type="checkbox" style="width:auto"> 🔥 Срочно</label>
@@ -243,6 +246,24 @@
   const onVacation = (h) => state.vacations.includes(lc(h));
   const plainNameOf = (h) => (h && state.people[lc(h)]) || h || 'без ответственного';
   const nameOf = (h) => plainNameOf(h) + (onVacation(h) ? ' · 🏖️ В отпуске' : '');
+  const displayCalendarDate = (date) => date.split('-').reverse().join('.');
+
+  function bindAssigneeWarning(select, warning, save, normalLabel, vacationLabel) {
+    const update = () => {
+      const assignee = select.value;
+      const returnDate = state.vacationReturns[lc(assignee)];
+      const isAway = onVacation(assignee) && (!returnDate || returnDate > day(Date.now()));
+      let message = '';
+      if (isAway) {
+        const returnInfo = returnDate ? `Дата возвращения — ${displayCalendarDate(returnDate)}.` : 'Дата возвращения не указана.';
+        message = `🏖️ ${plainNameOf(assignee)} в отпуске. ${returnInfo}`;
+      }
+      warning.textContent = message;
+      save.textContent = isAway ? vacationLabel : normalLabel;
+    };
+    select.addEventListener('change', update);
+    return update;
+  }
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
   const haptic = (t) => { try { tg.HapticFeedback.notificationOccurred(t); } catch (e) {} };
   const alertBox = (msg) => { try { tg.showAlert(msg); } catch (e) { toast(msg); } };
@@ -516,6 +537,15 @@
     const row = el('div', 'row');
     const save = el('button', 'act primary', op === 'cancel' ? 'Да, не нужна' : op === 'due' ? 'Сохранить срок' : 'Сохранить'); save.type = 'button';
     save.disabled = state.busy;
+    if (op === 'assign') {
+      const warning = el('div', 'assignment-warning');
+      warning.id = `assignee-warning-${t.num}`;
+      warning.setAttribute('role', 'status');
+      input.setAttribute('aria-label', 'Новый ответственный');
+      input.setAttribute('aria-describedby', warning.id);
+      box.append(warning);
+      bindAssigneeWarning(input, warning, save, 'Сохранить', 'Всё равно передать')();
+    }
     save.addEventListener('click', () => {
       const v = input ? input.value.trim() : '';
       if ((op === 'block' || op === 'note') && !v) { input.focus(); return; }
@@ -566,7 +596,7 @@
       const tr = el('tr');
       const person = el('th', null, nameOf(p.k)); person.scope = 'row';
       const returnDate = state.vacationReturns[p.k];
-      tr.append(person, el('td', 'return-date', onVacation(p.k) ? (returnDate ? returnDate.split('-').reverse().join('.') : 'Дата не указана') : '—'));
+      tr.append(person, el('td', 'return-date', onVacation(p.k) ? (returnDate ? displayCalendarDate(returnDate) : 'Дата не указана') : '—'));
       [p.open, p.in_progress, p.blocked, p.new, p.open ? p.oldest : '', p.c7, p.c30].forEach((v, i) => {
         const td = el('td', null, String(v));
         if (i === 2 && v > 0) td.className = 'bad';
@@ -602,6 +632,7 @@
   function openSheet() {
     const sel = $('n-who');
     sel.replaceChildren(...state.team.map((h) => { const o = el('option', null, nameOf(h)); o.value = h; if (h === state.me) o.selected = true; return o; }));
+    updateNewAssigneeWarning();
     $('n-title').value = ''; $('n-due').value = ''; $('n-meeting').checked = false; $('n-urgent').checked = false; $('n-check').value = '';
     $('sheet').hidden = false; setTimeout(() => $('n-title').focus(), 50);
   }
@@ -671,6 +702,7 @@
   $('new').addEventListener('click', openSheet);
   $('n-cancel').addEventListener('click', () => { $('sheet').hidden = true; });
   $('sheet').addEventListener('click', (e) => { if (e.target === $('sheet')) $('sheet').hidden = true; });
+  const updateNewAssigneeWarning = bindAssigneeWarning($('n-who'), $('new-assignee-warning'), $('n-save'), 'Создать', 'Всё равно создать');
   $('n-save').addEventListener('click', createTask);
 
   if (tg) { tg.ready(); tg.expand(); }
