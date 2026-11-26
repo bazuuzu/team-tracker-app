@@ -29,6 +29,10 @@
   header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
   h1 { font-size: 20px; margin: 0; font-weight: 650; }
   .sub { color: var(--muted); font-size: 13px; }
+  .availability { background: var(--bg); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 12px; display: grid; gap: 6px; }
+  .availability label { display: flex; align-items: center; gap: 10px; min-height: 36px; cursor: pointer; font-weight: 550; }
+  #vacation-toggle { width: auto; min-width: 24px; min-height: 24px; margin: 0; accent-color: var(--accent); }
+  #vacation-toggle:focus-visible { outline: 3px solid var(--fg); outline-offset: 3px; }
   button { font: inherit; }
   .btn { font-size: 13px; border: 0; border-radius: 999px; padding: 6px 12px; background: var(--bg); color: var(--link); cursor: pointer; }
   .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
@@ -121,6 +125,12 @@
   <div class="state" id="error" hidden></div>
 
   <main id="app" hidden>
+    <div class="availability" id="availability" hidden>
+      <label for="vacation-toggle"><input id="vacation-toggle" type="checkbox" aria-describedby="vacation-hint">🏖️ В отпуске</label>
+      <div class="sub" id="vacation-hint">На время отпуска личные автоматические уведомления отключаются. Общие сводки в чате остаются. Выключите режим после возвращения.</div>
+      <div class="sub" id="vacation-status" role="status" aria-live="polite"></div>
+      <div class="sub" id="vacation-team"></div>
+    </div>
     <section class="kpis" aria-label="Сводка">
       <div class="kpi"><b id="k-open">—</b><span>открыто</span></div>
       <div class="kpi bad"><b id="k-blocked">—</b><span>с блокером</span></div>
@@ -205,13 +215,15 @@
   const STATUS = { new: 'Новая', in_progress: 'В работе', blocked: 'Блокер', done: 'Закрыта', cancelled: 'Отменена' };
   const tg = window.Telegram && window.Telegram.WebApp;
   const $ = (id) => document.getElementById(id);
-  const state = { tasks: [], people: {}, team: [], managers: [], me: '', who: null, whoInit: false, onlyBlocked: false, onlyMeeting: false, oldestFirst: true, q: '', tab: 'tasks', open: null, editor: null, busy: false };
+  const state = { tasks: [], people: {}, team: [], managers: [], me: '', vacations: [], availabilityReady: false, vacationBusy: false, who: null, whoInit: false, onlyBlocked: false, onlyMeeting: false, oldestFirst: true, q: '', tab: 'tasks', open: null, editor: null, busy: false };
 
   const b64 = (s) => { if (!s) return ''; try { return new TextDecoder().decode(Uint8Array.from(atob(s), (c) => c.charCodeAt(0))); } catch (e) { return ''; } };
   const day = (t) => new Date(t).toLocaleDateString('sv-SE', { timeZone: TZ });
   const ddmm = (s) => { if (!s) return ''; const [, m, d] = s.split('-'); return `${d}.${m}`; };
   const lc = (s) => String(s || '').toLowerCase();
-  const nameOf = (h) => (h && state.people[lc(h)]) || h || 'без ответственного';
+  const onVacation = (h) => state.vacations.includes(lc(h));
+  const plainNameOf = (h) => (h && state.people[lc(h)]) || h || 'без ответственного';
+  const nameOf = (h) => plainNameOf(h) + (onVacation(h) ? ' · 🏖️ В отпуске' : '');
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
   const haptic = (t) => { try { tg.HapticFeedback.notificationOccurred(t); } catch (e) {} };
   const alertBox = (msg) => { try { tg.showAlert(msg); } catch (e) { toast(msg); } };
@@ -240,6 +252,8 @@
       state.team = data.team || [];
       state.managers = (data.managers || []).map(lc);
       state.me = lc(data.me);
+      state.availabilityReady = Array.isArray(data.vacations);
+      state.vacations = (Array.isArray(data.vacations) ? data.vacations : []).filter((h) => typeof h === 'string' && h.trim()).map(lc);
       state.tasks = (data.tasks || []).map((t) => {
         const o = { num: Number(t.num), created_at: t.created_at, updated_at: t.updated_at, done_at: t.done_at, due: t.due, link: t.link || '' };
         ['title', 'type', 'counterparty', 'assignee', 'status', 'blocker', 'author', 'last_note', 'history', 'tag', 'priority', 'checklist'].forEach((k) => { o[k] = b64(t[k]); });
@@ -252,6 +266,34 @@
       render();
     } catch (e) {
       showError('Не удалось загрузить задачи', 'Проверьте интернет и нажмите «Обновить».');
+    }
+  }
+
+  function renderVacation() {
+    $('availability').hidden = !state.availabilityReady;
+    $('vacation-toggle').checked = onVacation(state.me);
+    $('vacation-toggle').disabled = state.vacationBusy || !state.me;
+    $('vacation-team').textContent = state.vacations.length ? 'В отпуске: ' + state.vacations.map(plainNameOf).join(', ') : '';
+  }
+
+  async function setVacation() {
+    if (state.vacationBusy || !state.me) return;
+    const enabled = $('vacation-toggle').checked;
+    state.vacationBusy = true;
+    $('vacation-toggle').disabled = true;
+    $('vacation-status').textContent = '';
+    try {
+      const { status, data } = await post({ action: 'availability', value: enabled ? 'on' : 'off' });
+      if (status !== 200 || !data || !data.ok || data.on_vacation !== enabled) throw new Error('not_saved');
+      state.vacations = state.vacations.filter((h) => h !== state.me);
+      if (enabled) state.vacations.push(state.me);
+      $('vacation-status').textContent = enabled ? 'Режим отпуска включён. Личные уведомления приостановлены.' : 'Режим отпуска выключен. Личные уведомления возобновлены.';
+      render();
+    } catch (e) {
+      $('vacation-status').textContent = 'Не удалось сохранить режим. Проверьте связь и попробуйте ещё раз.';
+    } finally {
+      state.vacationBusy = false;
+      renderVacation();
     }
   }
 
@@ -280,6 +322,7 @@
   const isOpen = (t) => t.status !== 'done' && t.status !== 'cancelled';
 
   function render() {
+    renderVacation();
     const now = Date.now(), today = day(now);
     state.tasks.forEach((t) => {
       t.age = Math.max(0, Math.floor((now - Date.parse(t.created_at)) / DAY));
@@ -473,6 +516,7 @@
   function renderPeople(open, done, now) {
     const m = new Map();
     const get = (h) => { const k = lc(h) || '—'; if (!m.has(k)) m.set(k, { k, open: 0, in_progress: 0, blocked: 0, new: 0, oldest: 0, c7: 0, c30: 0 }); return m.get(k); };
+    state.team.forEach(get);
     open.forEach((t) => { const p = get(t.assignee); p.open++; if (p[t.status] != null) p[t.status]++; p.oldest = Math.max(p.oldest, t.age); });
     done.forEach((t) => { const p = get(t.assignee); const ago = now - Date.parse(t.done_at); if (ago <= 7 * DAY) p.c7++; if (ago <= 30 * DAY) p.c30++; });
     const rows = [...m.values()].sort((a, b) => b.open - a.open || b.c30 - a.c30);
@@ -569,6 +613,7 @@
   $('sort').addEventListener('click', () => { state.oldestFirst = !state.oldestFirst; render(); });
   $('q').addEventListener('input', (e) => { state.q = e.target.value; render(); });
   $('reload').addEventListener('click', load);
+  $('vacation-toggle').addEventListener('change', setVacation);
   $('new').addEventListener('click', openSheet);
   $('n-cancel').addEventListener('click', () => { $('sheet').hidden = true; });
   $('sheet').addEventListener('click', (e) => { if (e.target === $('sheet')) $('sheet').hidden = true; });
@@ -580,3 +625,4 @@
 </script>
 </body>
 </html>
+
