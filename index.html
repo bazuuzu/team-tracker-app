@@ -29,8 +29,13 @@
   header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
   h1 { font-size: 20px; margin: 0; font-weight: 650; }
   .sub { color: var(--muted); font-size: 13px; }
-  .availability { background: var(--bg); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 12px; display: grid; gap: 6px; }
-  .availability label { display: flex; align-items: center; gap: 10px; min-height: 36px; cursor: pointer; font-weight: 550; }
+  .availability { background: var(--bg); border-radius: var(--radius); padding: 12px; margin-top: 20px; display: grid; gap: 8px; }
+  .availability h2 { margin: 0; font-size: 15px; }
+  .availability .vacation-check { display: flex; align-items: center; gap: 10px; min-height: 48px; }
+  .availability label { cursor: pointer; font-weight: 550; }
+  .vacation-dates { display: grid; gap: 6px; }
+  #vacation-end, #vacation-save { min-height: 48px; font-size: 16px; }
+  #vacation-end:focus-visible, #vacation-save:focus-visible { outline: 3px solid var(--fg); outline-offset: 3px; }
   #vacation-toggle { width: auto; min-width: 24px; min-height: 24px; margin: 0; accent-color: var(--accent); }
   #vacation-toggle:focus-visible { outline: 3px solid var(--fg); outline-offset: 3px; }
   button { font: inherit; }
@@ -125,12 +130,6 @@
   <div class="state" id="error" hidden></div>
 
   <main id="app" hidden>
-    <div class="availability" id="availability" hidden>
-      <label for="vacation-toggle"><input id="vacation-toggle" type="checkbox" aria-describedby="vacation-hint">🏖️ В отпуске</label>
-      <div class="sub" id="vacation-hint">На время отпуска личные автоматические уведомления отключаются. Общие сводки в чате остаются. Выключите режим после возвращения.</div>
-      <div class="sub" id="vacation-status" role="status" aria-live="polite"></div>
-      <div class="sub" id="vacation-team"></div>
-    </div>
     <section class="kpis" aria-label="Сводка">
       <div class="kpi"><b id="k-open">—</b><span>открыто</span></div>
       <div class="kpi bad"><b id="k-blocked">—</b><span>с блокером</span></div>
@@ -185,6 +184,19 @@
         <div id="archive" class="panel" style="margin-top:8px"></div>
       </div>
     </section>
+    <form class="availability" id="availability" aria-labelledby="vacation-title" method="post" action="https://hook.eu1.make.com/8se36dwaiebkl6kg5upym2yghus959oj" hidden>
+      <h2 id="vacation-title">Отпуск</h2>
+      <div class="vacation-check"><input id="vacation-toggle" name="on_vacation" type="checkbox" aria-describedby="vacation-hint"><label for="vacation-toggle">🏖️ В отпуске</label></div>
+      <div class="sub" id="vacation-hint">На время отпуска личные автоматические уведомления отключаются. Общие сводки в чате остаются.</div>
+      <div class="vacation-dates" id="vacation-dates" hidden>
+        <label for="vacation-end">Последний день отпуска (необязательно)</label>
+        <input id="vacation-end" name="end_date" type="date" max="9999-12-30" aria-describedby="vacation-end-hint">
+        <div class="sub" id="vacation-end-hint">Режим выключится на следующий день в 00:00 по Москве. Без даты — до ручного выключения.</div>
+      </div>
+      <div class="actions"><button class="act" id="vacation-save" type="submit">Сохранить отпуск</button></div>
+      <div class="sub" id="vacation-status" role="status" aria-live="polite"></div>
+      <div class="sub" id="vacation-team"></div>
+    </form>
   </main>
 </div>
 
@@ -215,7 +227,7 @@
   const STATUS = { new: 'Новая', in_progress: 'В работе', blocked: 'Блокер', done: 'Закрыта', cancelled: 'Отменена' };
   const tg = window.Telegram && window.Telegram.WebApp;
   const $ = (id) => document.getElementById(id);
-  const state = { tasks: [], people: {}, team: [], managers: [], me: '', vacations: [], availabilityReady: false, vacationBusy: false, who: null, whoInit: false, onlyBlocked: false, onlyMeeting: false, oldestFirst: true, q: '', tab: 'tasks', open: null, editor: null, busy: false };
+  const state = { tasks: [], people: {}, team: [], managers: [], me: '', vacations: [], availabilityReady: false, vacationBusy: false, vacationEnd: '', vacationReturnAt: '', vacationDraftEnabled: false, vacationDraftEnd: '', who: null, whoInit: false, onlyBlocked: false, onlyMeeting: false, oldestFirst: true, q: '', tab: 'tasks', open: null, editor: null, busy: false };
 
   const b64 = (s) => { if (!s) return ''; try { return new TextDecoder().decode(Uint8Array.from(atob(s), (c) => c.charCodeAt(0))); } catch (e) { return ''; } };
   const day = (t) => new Date(t).toLocaleDateString('sv-SE', { timeZone: TZ });
@@ -254,6 +266,10 @@
       state.me = lc(data.me);
       state.availabilityReady = Array.isArray(data.vacations);
       state.vacations = (Array.isArray(data.vacations) ? data.vacations : []).filter((h) => typeof h === 'string' && h.trim()).map(lc);
+      state.vacationEnd = onVacation(state.me) ? (data.vacation_end || '') : '';
+      state.vacationReturnAt = onVacation(state.me) ? (data.return_at || '') : '';
+      state.vacationDraftEnabled = onVacation(state.me);
+      state.vacationDraftEnd = state.vacationEnd;
       state.tasks = (data.tasks || []).map((t) => {
         const o = { num: Number(t.num), created_at: t.created_at, updated_at: t.updated_at, done_at: t.done_at, due: t.due, link: t.link || '' };
         ['title', 'type', 'counterparty', 'assignee', 'status', 'blocker', 'author', 'last_note', 'history', 'tag', 'priority', 'checklist'].forEach((k) => { o[k] = b64(t[k]); });
@@ -271,25 +287,39 @@
 
   function renderVacation() {
     $('availability').hidden = !state.availabilityReady;
-    $('vacation-toggle').checked = onVacation(state.me);
+    $('vacation-toggle').checked = state.vacationDraftEnabled;
     $('vacation-toggle').disabled = state.vacationBusy || !state.me;
+    $('vacation-end').value = state.vacationDraftEnd;
+    $('vacation-end').min = day(Date.now());
+    $('vacation-end').disabled = state.vacationBusy || !state.vacationDraftEnabled;
+    $('vacation-dates').hidden = !state.vacationDraftEnabled;
+    $('vacation-save').disabled = state.vacationBusy || !state.me;
     $('vacation-team').textContent = state.vacations.length ? 'В отпуске: ' + state.vacations.map(plainNameOf).join(', ') : '';
   }
 
   async function setVacation() {
     if (state.vacationBusy || !state.me) return;
     const enabled = $('vacation-toggle').checked;
+    const endDate = enabled ? $('vacation-end').value : '';
+    if (enabled && !$('vacation-end').reportValidity()) return;
     state.vacationBusy = true;
-    $('vacation-toggle').disabled = true;
+    state.vacationDraftEnabled = enabled;
+    state.vacationDraftEnd = endDate;
+    renderVacation();
     $('vacation-status').textContent = '';
     try {
-      const { status, data } = await post({ action: 'availability', value: enabled ? 'on' : 'off' });
+      const { status, data } = await post({ action: 'availability', value: enabled ? 'on' : 'off', end_date: endDate });
       if (status !== 200 || !data || !data.ok || data.on_vacation !== enabled) throw new Error('not_saved');
       state.vacations = state.vacations.filter((h) => h !== state.me);
       if (enabled) state.vacations.push(state.me);
-      $('vacation-status').textContent = enabled ? 'Режим отпуска включён. Личные уведомления приостановлены.' : 'Режим отпуска выключен. Личные уведомления возобновлены.';
+      state.vacationEnd = data.vacation_end || '';
+      state.vacationReturnAt = data.return_at || '';
+      state.vacationDraftEnd = state.vacationEnd;
+      $('vacation-status').textContent = enabled ? 'Режим отпуска включён' + (endDate ? ' до ' + endDate.split('-').reverse().join('.') + ' включительно' : '') + '. Личные уведомления приостановлены.' : 'Режим отпуска выключен. Личные уведомления возобновлены.';
       render();
     } catch (e) {
+      state.vacationDraftEnabled = onVacation(state.me);
+      state.vacationDraftEnd = state.vacationEnd;
       $('vacation-status').textContent = 'Не удалось сохранить режим. Проверьте связь и попробуйте ещё раз.';
     } finally {
       state.vacationBusy = false;
@@ -613,7 +643,17 @@
   $('sort').addEventListener('click', () => { state.oldestFirst = !state.oldestFirst; render(); });
   $('q').addEventListener('input', (e) => { state.q = e.target.value; render(); });
   $('reload').addEventListener('click', load);
-  $('vacation-toggle').addEventListener('change', setVacation);
+  $('availability').addEventListener('submit', (event) => { event.preventDefault(); setVacation(); });
+  $('vacation-toggle').addEventListener('change', () => { state.vacationDraftEnabled = $('vacation-toggle').checked; renderVacation(); });
+  $('vacation-end').addEventListener('input', () => { state.vacationDraftEnd = $('vacation-end').value; });
+  setInterval(() => {
+    if (state.vacationBusy) return;
+    if (!state.vacationReturnAt || Date.now() < Date.parse(state.vacationReturnAt)) return;
+    state.vacations = state.vacations.filter((h) => h !== state.me);
+    state.vacationEnd = ''; state.vacationReturnAt = ''; state.vacationDraftEnabled = false; state.vacationDraftEnd = '';
+    $('vacation-status').textContent = 'Отпуск завершён. Личные уведомления возобновлены.';
+    render();
+  }, 30000);
   $('new').addEventListener('click', openSheet);
   $('n-cancel').addEventListener('click', () => { $('sheet').hidden = true; });
   $('sheet').addEventListener('click', (e) => { if (e.target === $('sheet')) $('sheet').hidden = true; });
